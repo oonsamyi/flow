@@ -1,10 +1,9 @@
 /*
  * @flow
- * @lint-ignore-every LINEWRAP1
  */
 
 
-import {suite, test} from '../../tsrc/test/Tester';
+import {suite, test} from 'flow-dev-tools/src/test/Tester';
 
 export default suite(({addFile, addFiles, addCode}) => [
   test('import named', [
@@ -15,9 +14,12 @@ export default suite(({addFile, addFiles, addCode}) => [
                              `
                                test.js:7
                                  7: ("str": BT);
-                                     ^^^^^ string. This type is incompatible with
-                                 7: ("str": BT);
-                                            ^^ AT
+                                     ^^^^^ Cannot cast \`"str"\` to \`BT\` because string [1] is incompatible with number [2].
+                                 References:
+                                   7: ("str": BT);
+                                       ^^^^^ [1]
+                                   7: ("str": BT);
+                                              ^^ [2]
                              `,
                            ),
   ]),
@@ -26,13 +28,18 @@ export default suite(({addFile, addFiles, addCode}) => [
     addCode('import type BDefault from "B";').noNewErrors(),
     addCode('import BDefaultValue from "B";').noNewErrors(),
     addCode('(new BDefaultValue(): BDefault);').noNewErrors(),
-    addCode('(42: BDefault);').newErrors(`
-      test.js:9
-        9: (42: BDefault);
-            ^^ number. This type is incompatible with
-        9: (42: BDefault);
-                ^^^^^^^^ Def
-    `),
+    addCode('(42: BDefault);').newErrors(
+                                `
+                                  test.js:9
+                                    9: (42: BDefault);
+                                        ^^ Cannot cast \`42\` to \`BDefault\` because number [1] is incompatible with \`Def\` [2].
+                                    References:
+                                      9: (42: BDefault);
+                                          ^^ [1]
+                                      9: (42: BDefault);
+                                              ^^^^^^^^ [2]
+                                `,
+                              ),
   ]),
   test('import between libdef files', [
     addFile('flow-typed/C.js'),
@@ -48,65 +55,13 @@ export default suite(({addFile, addFiles, addCode}) => [
 
     addCode('(cVal: CT);').noNewErrors(),
     addCode('(cVal.D: DT);').noNewErrors(),
-    addCode('(cVal: DT);').newErrors(
-                            `
-                              test.js:18
-                               18: (cVal: DT);
-                                    ^^^^ object literal. This type is incompatible with
-                               18: (cVal: DT);
-                                          ^^ DT
-                                Property \`C\` is incompatible:
-                                   18: (cVal: DT);
-                                              ^^ property \`C\`. Property not found in
-                                   18: (cVal: DT);
-                                        ^^^^ object literal
-                            `,
-                          ),
-    addCode('(cVal.D: CT);').newErrors(
-                              `
-                                test.js:20
-                                 20: (cVal.D: CT);
-                                      ^^^^^^ object literal. This type is incompatible with
-                                 20: (cVal.D: CT);
-                                              ^^ CT
-                                  Property \`D\` is incompatible:
-                                     20: (cVal.D: CT);
-                                                  ^^ property \`D\`. Property not found in
-                                     20: (cVal.D: CT);
-                                          ^^^^^^ object literal
-                              `,
-                            ),
+    addCode('(cVal: DT);').noNewErrors(),
+    addCode('(cVal.D: CT);').noNewErrors(),
 
     addCode('(dVal: DT);').noNewErrors(),
     addCode('(dVal.C: CT);').noNewErrors(),
-    addCode('(dVal: CT);').newErrors(
-                            `
-                              test.js:26
-                               26: (dVal: CT);
-                                    ^^^^ object literal. This type is incompatible with
-                               26: (dVal: CT);
-                                          ^^ CT
-                                Property \`D\` is incompatible:
-                                   26: (dVal: CT);
-                                              ^^ property \`D\`. Property not found in
-                                   26: (dVal: CT);
-                                        ^^^^ object literal
-                            `,
-                          ),
-    addCode('(dVal.C: DT);').newErrors(
-                              `
-                                test.js:28
-                                 28: (dVal.C: DT);
-                                      ^^^^^^ object literal. This type is incompatible with
-                                 28: (dVal.C: DT);
-                                              ^^ DT
-                                  Property \`C\` is incompatible:
-                                     28: (dVal.C: DT);
-                                                  ^^ property \`C\`. Property not found in
-                                     28: (dVal.C: DT);
-                                          ^^^^^^ object literal
-                              `,
-                            ),
+    addCode('(dVal: CT);').noNewErrors(),
+    addCode('(dVal.C: DT);').noNewErrors(),
   ]),
 
   /**

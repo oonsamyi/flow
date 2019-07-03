@@ -1,9 +1,8 @@
 /*
  * @flow
- * @lint-ignore-every LINEWRAP1
  */
 
-import {suite, test} from '../../tsrc/test/Tester';
+import {suite, test} from 'flow-dev-tools/src/test/Tester';
 
 export default suite(({addFile, addFiles, addCode}) => [
   test('X ~> A', [
@@ -21,14 +20,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:50
            50: (roA: RWA);
-                ^^^ ROA. This type is incompatible with
-           50: (roA: RWA);
-                     ^^^ RWA
-            Property \`p\` is incompatible:
-               50: (roA: RWA);
-                    ^^^ ROA. Covariant property \`p\` incompatible with invariant use in
-               50: (roA: RWA);
-                         ^^^ RWA
+                ^^^ Cannot cast \`roA\` to \`RWA\` because property \`p\` is read-only in \`ROA\` [1] but writable in \`RWA\` [2].
+            References:
+             17:     declare var roA: ROA;
+                                      ^^^ [1]
+             50: (roA: RWA);
+                       ^^^ [2]
         `,
       ),
     addCode('(droA: dRWA);')
@@ -36,14 +33,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:52
            52: (droA: dRWA);
-                ^^^^ dROA. This type is incompatible with
-           52: (droA: dRWA);
-                      ^^^^ dRWA
-            Indexable signature is incompatible:
-               52: (droA: dRWA);
-                    ^^^^ dROA. Covariant computed property incompatible with invariant use in
-               52: (droA: dRWA);
-                          ^^^^ dRWA
+                ^^^^ Cannot cast \`droA\` to \`dRWA\` because an index signature declaring the expected key / value type is read-only in \`dROA\` [1] but writable in \`dRWA\` [2].
+            References:
+             34:     declare var droA: dROA;
+                                       ^^^^ [1]
+             52: (droA: dRWA);
+                        ^^^^ [2]
         `,
       ),
 
@@ -53,14 +48,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:54
            54: (woA: RWA);
-                ^^^ WOA. This type is incompatible with
-           54: (woA: RWA);
-                     ^^^ RWA
-            Property \`p\` is incompatible:
-               54: (woA: RWA);
-                    ^^^ WOA. Contravariant property \`p\` incompatible with invariant use in
-               54: (woA: RWA);
-                         ^^^ RWA
+                ^^^ Cannot cast \`woA\` to \`RWA\` because property \`p\` is write-only in \`WOA\` [1] but readable in \`RWA\` [2].
+            References:
+             18:     declare var woA: WOA;
+                                      ^^^ [1]
+             54: (woA: RWA);
+                       ^^^ [2]
         `,
       ),
     addCode('(dwoA: dRWA);')
@@ -68,14 +61,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:56
            56: (dwoA: dRWA);
-                ^^^^ dWOA. This type is incompatible with
-           56: (dwoA: dRWA);
-                      ^^^^ dRWA
-            Indexable signature is incompatible:
-               56: (dwoA: dRWA);
-                    ^^^^ dWOA. Contravariant computed property incompatible with invariant use in
-               56: (dwoA: dRWA);
-                          ^^^^ dRWA
+                ^^^^ Cannot cast \`dwoA\` to \`dRWA\` because an index signature declaring the expected key / value type is write-only in \`dWOA\` [1] but readable in \`dRWA\` [2].
+            References:
+             35:     declare var dwoA: dWOA;
+                                       ^^^^ [1]
+             56: (dwoA: dRWA);
+                        ^^^^ [2]
         `,
       ),
 
@@ -90,14 +81,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:62
            62: (rwB: RWA);
-                ^^^ RWB. This type is incompatible with
-           62: (rwB: RWA);
-                     ^^^ RWA
-            Property \`p\` is incompatible:
-               12:     type RWB = {p: B}
-                                      ^ B. This type is incompatible with
-                9:     type RWA = {p: A}
-                                      ^ A
+                ^^^ Cannot cast \`rwB\` to \`RWA\` because \`B\` [1] is incompatible with \`A\` [2] in property \`p\`.
+            References:
+             12:     type RWB = {p: B}
+                                    ^ [1]
+              9:     type RWA = {p: A}
+                                    ^ [2]
         `,
       ),
     addCode('(drwB: dRWA);')
@@ -105,14 +94,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:64
            64: (drwB: dRWA);
-                ^^^^ dRWB. This type is incompatible with
-           64: (drwB: dRWA);
-                      ^^^^ dRWA
-            Indexable signature is incompatible:
-               29:     type dRWB = {[string]: B};
-                                              ^ B. This type is incompatible with
-               26:     type dRWA = {[string]: A};
-                                              ^ A
+                ^^^^ Cannot cast \`drwB\` to \`dRWA\` because \`B\` [1] is incompatible with \`A\` [2] in the indexer property.
+            References:
+             29:     type dRWB = {[string]: B};
+                                            ^ [1]
+             26:     type dRWA = {[string]: A};
+                                            ^ [2]
         `,
       ),
 
@@ -122,14 +109,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:66
            66: (roB: RWA);
-                ^^^ ROB. This type is incompatible with
-           66: (roB: RWA);
-                     ^^^ RWA
-            Property \`p\` is incompatible:
-               66: (roB: RWA);
-                    ^^^ ROB. Covariant property \`p\` incompatible with invariant use in
-               66: (roB: RWA);
-                         ^^^ RWA
+                ^^^ Cannot cast \`roB\` to \`RWA\` because property \`p\` is read-only in \`ROB\` [1] but writable in \`RWA\` [2].
+            References:
+             21:     declare var roB: ROB;
+                                      ^^^ [1]
+             66: (roB: RWA);
+                       ^^^ [2]
         `,
       ),
     addCode('(droB: dRWA);')
@@ -137,14 +122,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:68
            68: (droB: dRWA);
-                ^^^^ dROB. This type is incompatible with
-           68: (droB: dRWA);
-                      ^^^^ dRWA
-            Indexable signature is incompatible:
-               68: (droB: dRWA);
-                    ^^^^ dROB. Covariant computed property incompatible with invariant use in
-               68: (droB: dRWA);
-                          ^^^^ dRWA
+                ^^^^ Cannot cast \`droB\` to \`dRWA\` because an index signature declaring the expected key / value type is read-only in \`dROB\` [1] but writable in \`dRWA\` [2].
+            References:
+             38:     declare var droB: dROB;
+                                       ^^^^ [1]
+             68: (droB: dRWA);
+                        ^^^^ [2]
         `,
       ),
 
@@ -154,25 +137,21 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:70
            70: (woB: RWA);
-                ^^^ WOB. This type is incompatible with
-           70: (woB: RWA);
-                     ^^^ RWA
-            Property \`p\` is incompatible:
-                9:     type RWA = {p: A}
-                                      ^ A. This type is incompatible with
-               14:     type WOB = {-p: B}
-                                       ^ B
+                ^^^ Cannot cast \`woB\` to \`RWA\` because property \`p\` is write-only in \`WOB\` [1] but readable in \`RWA\` [2].
+            References:
+             22:     declare var woB: WOB;
+                                      ^^^ [1]
+             70: (woB: RWA);
+                       ^^^ [2]
 
           test.js:70
            70: (woB: RWA);
-                ^^^ WOB. This type is incompatible with
-           70: (woB: RWA);
-                     ^^^ RWA
-            Property \`p\` is incompatible:
-               70: (woB: RWA);
-                    ^^^ WOB. Contravariant property \`p\` incompatible with invariant use in
-               70: (woB: RWA);
-                         ^^^ RWA
+                ^^^ Cannot cast \`woB\` to \`RWA\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+              9:     type RWA = {p: A}
+                                    ^ [1]
+             14:     type WOB = {-p: B}
+                                     ^ [2]
         `,
       ),
     addCode('(dwoB: dRWA);')
@@ -180,25 +159,21 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:72
            72: (dwoB: dRWA);
-                ^^^^ dWOB. This type is incompatible with
-           72: (dwoB: dRWA);
-                      ^^^^ dRWA
-            Indexable signature is incompatible:
-               26:     type dRWA = {[string]: A};
-                                              ^ A. This type is incompatible with
-               31:     type dWOB = {-[string]: B};
-                                               ^ B
+                ^^^^ Cannot cast \`dwoB\` to \`dRWA\` because an index signature declaring the expected key / value type is write-only in \`dWOB\` [1] but readable in \`dRWA\` [2].
+            References:
+             39:     declare var dwoB: dWOB;
+                                       ^^^^ [1]
+             72: (dwoB: dRWA);
+                        ^^^^ [2]
 
           test.js:72
            72: (dwoB: dRWA);
-                ^^^^ dWOB. This type is incompatible with
-           72: (dwoB: dRWA);
-                      ^^^^ dRWA
-            Indexable signature is incompatible:
-               72: (dwoB: dRWA);
-                    ^^^^ dWOB. Contravariant computed property incompatible with invariant use in
-               72: (dwoB: dRWA);
-                          ^^^^ dRWA
+                ^^^^ Cannot cast \`dwoB\` to \`dRWA\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             26:     type dRWA = {[string]: A};
+                                            ^ [1]
+             31:     type dWOB = {-[string]: B};
+                                             ^ [2]
         `,
       ),
   ]),
@@ -222,14 +197,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:54
            54: (woA: ROA);
-                ^^^ WOA. This type is incompatible with
-           54: (woA: ROA);
-                     ^^^ ROA
-            Property \`p\` is incompatible:
-               54: (woA: ROA);
-                    ^^^ WOA. Contravariant property \`p\` incompatible with covariant use in
-               54: (woA: ROA);
-                         ^^^ ROA
+                ^^^ Cannot cast \`woA\` to \`ROA\` because property \`p\` is write-only in \`WOA\` [1] but read-only in \`ROA\` [2].
+            References:
+             18:     declare var woA: WOA;
+                                      ^^^ [1]
+             54: (woA: ROA);
+                       ^^^ [2]
         `,
       ),
     addCode('(dwoA: dROA);')
@@ -237,14 +210,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:56
            56: (dwoA: dROA);
-                ^^^^ dWOA. This type is incompatible with
-           56: (dwoA: dROA);
-                      ^^^^ dROA
-            Indexable signature is incompatible:
-               56: (dwoA: dROA);
-                    ^^^^ dWOA. Contravariant computed property incompatible with covariant use in
-               56: (dwoA: dROA);
-                          ^^^^ dROA
+                ^^^^ Cannot cast \`dwoA\` to \`dROA\` because an index signature declaring the expected key / value type is write-only in \`dWOA\` [1] but read-only in \`dROA\` [2].
+            References:
+             35:     declare var dwoA: dWOA;
+                                       ^^^^ [1]
+             56: (dwoA: dROA);
+                        ^^^^ [2]
         `,
       ),
 
@@ -266,14 +237,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:70
            70: (woB: ROA);
-                ^^^ WOB. This type is incompatible with
-           70: (woB: ROA);
-                     ^^^ ROA
-            Property \`p\` is incompatible:
-               70: (woB: ROA);
-                    ^^^ WOB. Contravariant property \`p\` incompatible with covariant use in
-               70: (woB: ROA);
-                         ^^^ ROA
+                ^^^ Cannot cast \`woB\` to \`ROA\` because property \`p\` is write-only in \`WOB\` [1] but read-only in \`ROA\` [2].
+            References:
+             22:     declare var woB: WOB;
+                                      ^^^ [1]
+             70: (woB: ROA);
+                       ^^^ [2]
         `,
       ),
     addCode('(dwoB: dROA);')
@@ -281,14 +250,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:72
            72: (dwoB: dROA);
-                ^^^^ dWOB. This type is incompatible with
-           72: (dwoB: dROA);
-                      ^^^^ dROA
-            Indexable signature is incompatible:
-               72: (dwoB: dROA);
-                    ^^^^ dWOB. Contravariant computed property incompatible with covariant use in
-               72: (dwoB: dROA);
-                          ^^^^ dROA
+                ^^^^ Cannot cast \`dwoB\` to \`dROA\` because an index signature declaring the expected key / value type is write-only in \`dWOB\` [1] but read-only in \`dROA\` [2].
+            References:
+             39:     declare var dwoB: dWOB;
+                                       ^^^^ [1]
+             72: (dwoB: dROA);
+                        ^^^^ [2]
         `,
       ),
   ]),
@@ -308,14 +275,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:50
            50: (roA: WOA);
-                ^^^ ROA. This type is incompatible with
-           50: (roA: WOA);
-                     ^^^ WOA
-            Property \`p\` is incompatible:
-               50: (roA: WOA);
-                    ^^^ ROA. Covariant property \`p\` incompatible with contravariant use in
-               50: (roA: WOA);
-                         ^^^ WOA
+                ^^^ Cannot cast \`roA\` to \`WOA\` because property \`p\` is read-only in \`ROA\` [1] but write-only in \`WOA\` [2].
+            References:
+             17:     declare var roA: ROA;
+                                      ^^^ [1]
+             50: (roA: WOA);
+                       ^^^ [2]
         `,
       ),
     addCode('(droA: dWOA);')
@@ -323,14 +288,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:52
            52: (droA: dWOA);
-                ^^^^ dROA. This type is incompatible with
-           52: (droA: dWOA);
-                      ^^^^ dWOA
-            Indexable signature is incompatible:
-               52: (droA: dWOA);
-                    ^^^^ dROA. Covariant computed property incompatible with contravariant use in
-               52: (droA: dWOA);
-                          ^^^^ dWOA
+                ^^^^ Cannot cast \`droA\` to \`dWOA\` because an index signature declaring the expected key / value type is read-only in \`dROA\` [1] but write-only in \`dWOA\` [2].
+            References:
+             34:     declare var droA: dROA;
+                                       ^^^^ [1]
+             52: (droA: dWOA);
+                        ^^^^ [2]
         `,
       ),
 
@@ -348,14 +311,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:62
            62: (rwB: WOA);
-                ^^^ RWB. This type is incompatible with
-           62: (rwB: WOA);
-                     ^^^ WOA
-            Property \`p\` is incompatible:
-               11:     type WOA = {-p: A}
-                                       ^ A. This type is incompatible with
-               12:     type RWB = {p: B}
-                                      ^ B
+                ^^^ Cannot cast \`rwB\` to \`WOA\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             11:     type WOA = {-p: A}
+                                     ^ [1]
+             12:     type RWB = {p: B}
+                                    ^ [2]
         `,
       ),
     addCode('(drwB: dWOA);')
@@ -363,14 +324,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:64
            64: (drwB: dWOA);
-                ^^^^ dRWB. This type is incompatible with
-           64: (drwB: dWOA);
-                      ^^^^ dWOA
-            Indexable signature is incompatible:
-               28:     type dWOA = {-[string]: A};
-                                               ^ A. This type is incompatible with
-               29:     type dRWB = {[string]: B};
-                                              ^ B
+                ^^^^ Cannot cast \`drwB\` to \`dWOA\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             28:     type dWOA = {-[string]: A};
+                                             ^ [1]
+             29:     type dRWB = {[string]: B};
+                                            ^ [2]
         `,
       ),
 
@@ -380,14 +339,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:66
            66: (roB: WOA);
-                ^^^ ROB. This type is incompatible with
-           66: (roB: WOA);
-                     ^^^ WOA
-            Property \`p\` is incompatible:
-               66: (roB: WOA);
-                    ^^^ ROB. Covariant property \`p\` incompatible with contravariant use in
-               66: (roB: WOA);
-                         ^^^ WOA
+                ^^^ Cannot cast \`roB\` to \`WOA\` because property \`p\` is read-only in \`ROB\` [1] but write-only in \`WOA\` [2].
+            References:
+             21:     declare var roB: ROB;
+                                      ^^^ [1]
+             66: (roB: WOA);
+                       ^^^ [2]
         `,
       ),
     addCode('(droB: dWOA);')
@@ -395,14 +352,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:68
            68: (droB: dWOA);
-                ^^^^ dROB. This type is incompatible with
-           68: (droB: dWOA);
-                      ^^^^ dWOA
-            Indexable signature is incompatible:
-               68: (droB: dWOA);
-                    ^^^^ dROB. Covariant computed property incompatible with contravariant use in
-               68: (droB: dWOA);
-                          ^^^^ dWOA
+                ^^^^ Cannot cast \`droB\` to \`dWOA\` because an index signature declaring the expected key / value type is read-only in \`dROB\` [1] but write-only in \`dWOA\` [2].
+            References:
+             38:     declare var droB: dROB;
+                                       ^^^^ [1]
+             68: (droB: dWOA);
+                        ^^^^ [2]
         `,
       ),
 
@@ -412,14 +367,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:70
            70: (woB: WOA);
-                ^^^ WOB. This type is incompatible with
-           70: (woB: WOA);
-                     ^^^ WOA
-            Property \`p\` is incompatible:
-               11:     type WOA = {-p: A}
-                                       ^ A. This type is incompatible with
-               14:     type WOB = {-p: B}
-                                       ^ B
+                ^^^ Cannot cast \`woB\` to \`WOA\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             11:     type WOA = {-p: A}
+                                     ^ [1]
+             14:     type WOB = {-p: B}
+                                     ^ [2]
         `,
       ),
     addCode('(dwoB: dWOA);')
@@ -427,14 +380,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:72
            72: (dwoB: dWOA);
-                ^^^^ dWOB. This type is incompatible with
-           72: (dwoB: dWOA);
-                      ^^^^ dWOA
-            Indexable signature is incompatible:
-               28:     type dWOA = {-[string]: A};
-                                               ^ A. This type is incompatible with
-               31:     type dWOB = {-[string]: B};
-                                               ^ B
+                ^^^^ Cannot cast \`dwoB\` to \`dWOA\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             28:     type dWOA = {-[string]: A};
+                                             ^ [1]
+             31:     type dWOB = {-[string]: B};
+                                             ^ [2]
         `,
       ),
   ]),
@@ -446,14 +397,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:42
            42: ({p: new A}: RWB);
-                ^^^^^^^^^^ object literal. This type is incompatible with
-           42: ({p: new A}: RWB);
-                            ^^^ RWB
-            Property \`p\` is incompatible:
-               42: ({p: new A}: RWB);
-                        ^^^^^ A. This type is incompatible with
-               12:     type RWB = {p: B}
-                                      ^ B
+                    ^^^^^ Cannot cast object literal to \`RWB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             42: ({p: new A}: RWB);
+                      ^^^^^ [1]
+             12:     type RWB = {p: B}
+                                    ^ [2]
         `,
       ),
     addCode('({p: new A}: dRWB);')
@@ -461,14 +410,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:44
            44: ({p: new A}: dRWB);
-                ^^^^^^^^^^ object literal. This type is incompatible with
-           44: ({p: new A}: dRWB);
-                            ^^^^ dRWB
-            Property \`p\` is incompatible:
-               44: ({p: new A}: dRWB);
-                        ^^^^^ A. This type is incompatible with
-               29:     type dRWB = {[string]: B};
-                                              ^ B
+                    ^^^^^ Cannot cast object literal to \`dRWB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             44: ({p: new A}: dRWB);
+                      ^^^^^ [1]
+             29:     type dRWB = {[string]: B};
+                                            ^ [2]
         `,
       ),
 
@@ -478,14 +425,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:46
            46: (rwA: RWB);
-                ^^^ RWA. This type is incompatible with
-           46: (rwA: RWB);
-                     ^^^ RWB
-            Property \`p\` is incompatible:
-                9:     type RWA = {p: A}
-                                      ^ A. This type is incompatible with
-               12:     type RWB = {p: B}
-                                      ^ B
+                ^^^ Cannot cast \`rwA\` to \`RWB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+              9:     type RWA = {p: A}
+                                    ^ [1]
+             12:     type RWB = {p: B}
+                                    ^ [2]
         `,
       ),
     addCode('(drwA: dRWB);')
@@ -493,14 +438,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:48
            48: (drwA: dRWB);
-                ^^^^ dRWA. This type is incompatible with
-           48: (drwA: dRWB);
-                      ^^^^ dRWB
-            Indexable signature is incompatible:
-               26:     type dRWA = {[string]: A};
-                                              ^ A. This type is incompatible with
-               29:     type dRWB = {[string]: B};
-                                              ^ B
+                ^^^^ Cannot cast \`drwA\` to \`dRWB\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             26:     type dRWA = {[string]: A};
+                                            ^ [1]
+             29:     type dRWB = {[string]: B};
+                                            ^ [2]
         `,
       ),
 
@@ -510,25 +453,21 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:50
            50: (roA: RWB);
-                ^^^ ROA. This type is incompatible with
-           50: (roA: RWB);
-                     ^^^ RWB
-            Property \`p\` is incompatible:
-               10:     type ROA = {+p: A}
-                                       ^ A. This type is incompatible with
-               12:     type RWB = {p: B}
-                                      ^ B
+                ^^^ Cannot cast \`roA\` to \`RWB\` because property \`p\` is read-only in \`ROA\` [1] but writable in \`RWB\` [2].
+            References:
+             17:     declare var roA: ROA;
+                                      ^^^ [1]
+             50: (roA: RWB);
+                       ^^^ [2]
 
           test.js:50
            50: (roA: RWB);
-                ^^^ ROA. This type is incompatible with
-           50: (roA: RWB);
-                     ^^^ RWB
-            Property \`p\` is incompatible:
-               50: (roA: RWB);
-                    ^^^ ROA. Covariant property \`p\` incompatible with invariant use in
-               50: (roA: RWB);
-                         ^^^ RWB
+                ^^^ Cannot cast \`roA\` to \`RWB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             10:     type ROA = {+p: A}
+                                     ^ [1]
+             12:     type RWB = {p: B}
+                                    ^ [2]
         `,
       ),
     addCode('(droA: dRWB);')
@@ -536,25 +475,21 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:52
            52: (droA: dRWB);
-                ^^^^ dROA. This type is incompatible with
-           52: (droA: dRWB);
-                      ^^^^ dRWB
-            Indexable signature is incompatible:
-               27:     type dROA = {+[string]: A};
-                                               ^ A. This type is incompatible with
-               29:     type dRWB = {[string]: B};
-                                              ^ B
+                ^^^^ Cannot cast \`droA\` to \`dRWB\` because an index signature declaring the expected key / value type is read-only in \`dROA\` [1] but writable in \`dRWB\` [2].
+            References:
+             34:     declare var droA: dROA;
+                                       ^^^^ [1]
+             52: (droA: dRWB);
+                        ^^^^ [2]
 
           test.js:52
            52: (droA: dRWB);
-                ^^^^ dROA. This type is incompatible with
-           52: (droA: dRWB);
-                      ^^^^ dRWB
-            Indexable signature is incompatible:
-               52: (droA: dRWB);
-                    ^^^^ dROA. Covariant computed property incompatible with invariant use in
-               52: (droA: dRWB);
-                          ^^^^ dRWB
+                ^^^^ Cannot cast \`droA\` to \`dRWB\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             27:     type dROA = {+[string]: A};
+                                             ^ [1]
+             29:     type dRWB = {[string]: B};
+                                            ^ [2]
         `,
       ),
 
@@ -564,14 +499,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:54
            54: (woA: RWB);
-                ^^^ WOA. This type is incompatible with
-           54: (woA: RWB);
-                     ^^^ RWB
-            Property \`p\` is incompatible:
-               54: (woA: RWB);
-                    ^^^ WOA. Contravariant property \`p\` incompatible with invariant use in
-               54: (woA: RWB);
-                         ^^^ RWB
+                ^^^ Cannot cast \`woA\` to \`RWB\` because property \`p\` is write-only in \`WOA\` [1] but readable in \`RWB\` [2].
+            References:
+             18:     declare var woA: WOA;
+                                      ^^^ [1]
+             54: (woA: RWB);
+                       ^^^ [2]
         `,
       ),
     addCode('(dwoA: dRWB);')
@@ -579,14 +512,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:56
            56: (dwoA: dRWB);
-                ^^^^ dWOA. This type is incompatible with
-           56: (dwoA: dRWB);
-                      ^^^^ dRWB
-            Indexable signature is incompatible:
-               56: (dwoA: dRWB);
-                    ^^^^ dWOA. Contravariant computed property incompatible with invariant use in
-               56: (dwoA: dRWB);
-                          ^^^^ dRWB
+                ^^^^ Cannot cast \`dwoA\` to \`dRWB\` because an index signature declaring the expected key / value type is write-only in \`dWOA\` [1] but readable in \`dRWB\` [2].
+            References:
+             35:     declare var dwoA: dWOA;
+                                       ^^^^ [1]
+             56: (dwoA: dRWB);
+                        ^^^^ [2]
         `,
       ),
   ]),
@@ -598,14 +529,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:42
            42: ({p: new A}: ROB);
-                ^^^^^^^^^^ object literal. This type is incompatible with
-           42: ({p: new A}: ROB);
-                            ^^^ ROB
-            Property \`p\` is incompatible:
-               42: ({p: new A}: ROB);
-                        ^^^^^ A. This type is incompatible with
-               13:     type ROB = {+p: B}
-                                       ^ B
+                    ^^^^^ Cannot cast object literal to \`ROB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             42: ({p: new A}: ROB);
+                      ^^^^^ [1]
+             13:     type ROB = {+p: B}
+                                     ^ [2]
         `,
       ),
     addCode('({p: new A}: dROB);')
@@ -613,14 +542,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:44
            44: ({p: new A}: dROB);
-                ^^^^^^^^^^ object literal. This type is incompatible with
-           44: ({p: new A}: dROB);
-                            ^^^^ dROB
-            Property \`p\` is incompatible:
-               44: ({p: new A}: dROB);
-                        ^^^^^ A. This type is incompatible with
-               30:     type dROB = {+[string]: B};
-                                               ^ B
+                    ^^^^^ Cannot cast object literal to \`dROB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             44: ({p: new A}: dROB);
+                      ^^^^^ [1]
+             30:     type dROB = {+[string]: B};
+                                             ^ [2]
         `,
       ),
 
@@ -630,14 +557,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:46
            46: (rwA: ROB);
-                ^^^ RWA. This type is incompatible with
-           46: (rwA: ROB);
-                     ^^^ ROB
-            Property \`p\` is incompatible:
-                9:     type RWA = {p: A}
-                                      ^ A. This type is incompatible with
-               13:     type ROB = {+p: B}
-                                       ^ B
+                ^^^ Cannot cast \`rwA\` to \`ROB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+              9:     type RWA = {p: A}
+                                    ^ [1]
+             13:     type ROB = {+p: B}
+                                     ^ [2]
         `,
       ),
     addCode('(drwA: dROB);')
@@ -645,14 +570,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:48
            48: (drwA: dROB);
-                ^^^^ dRWA. This type is incompatible with
-           48: (drwA: dROB);
-                      ^^^^ dROB
-            Indexable signature is incompatible:
-               26:     type dRWA = {[string]: A};
-                                              ^ A. This type is incompatible with
-               30:     type dROB = {+[string]: B};
-                                               ^ B
+                ^^^^ Cannot cast \`drwA\` to \`dROB\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             26:     type dRWA = {[string]: A};
+                                            ^ [1]
+             30:     type dROB = {+[string]: B};
+                                             ^ [2]
         `,
       ),
 
@@ -662,14 +585,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:50
            50: (roA: ROB);
-                ^^^ ROA. This type is incompatible with
-           50: (roA: ROB);
-                     ^^^ ROB
-            Property \`p\` is incompatible:
-               10:     type ROA = {+p: A}
-                                       ^ A. This type is incompatible with
-               13:     type ROB = {+p: B}
-                                       ^ B
+                ^^^ Cannot cast \`roA\` to \`ROB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+            References:
+             10:     type ROA = {+p: A}
+                                     ^ [1]
+             13:     type ROB = {+p: B}
+                                     ^ [2]
         `,
       ),
     addCode('(droA: dROB);')
@@ -677,14 +598,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:52
            52: (droA: dROB);
-                ^^^^ dROA. This type is incompatible with
-           52: (droA: dROB);
-                      ^^^^ dROB
-            Indexable signature is incompatible:
-               27:     type dROA = {+[string]: A};
-                                               ^ A. This type is incompatible with
-               30:     type dROB = {+[string]: B};
-                                               ^ B
+                ^^^^ Cannot cast \`droA\` to \`dROB\` because \`A\` [1] is incompatible with \`B\` [2] in the indexer property.
+            References:
+             27:     type dROA = {+[string]: A};
+                                             ^ [1]
+             30:     type dROB = {+[string]: B};
+                                             ^ [2]
         `,
       ),
 
@@ -694,14 +613,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:54
            54: (woA: ROB);
-                ^^^ WOA. This type is incompatible with
-           54: (woA: ROB);
-                     ^^^ ROB
-            Property \`p\` is incompatible:
-               54: (woA: ROB);
-                    ^^^ WOA. Contravariant property \`p\` incompatible with covariant use in
-               54: (woA: ROB);
-                         ^^^ ROB
+                ^^^ Cannot cast \`woA\` to \`ROB\` because property \`p\` is write-only in \`WOA\` [1] but read-only in \`ROB\` [2].
+            References:
+             18:     declare var woA: WOA;
+                                      ^^^ [1]
+             54: (woA: ROB);
+                       ^^^ [2]
         `,
       ),
     addCode('(dwoA: dROB);')
@@ -709,14 +626,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:56
            56: (dwoA: dROB);
-                ^^^^ dWOA. This type is incompatible with
-           56: (dwoA: dROB);
-                      ^^^^ dROB
-            Indexable signature is incompatible:
-               56: (dwoA: dROB);
-                    ^^^^ dWOA. Contravariant computed property incompatible with covariant use in
-               56: (dwoA: dROB);
-                          ^^^^ dROB
+                ^^^^ Cannot cast \`dwoA\` to \`dROB\` because an index signature declaring the expected key / value type is write-only in \`dWOA\` [1] but read-only in \`dROB\` [2].
+            References:
+             35:     declare var dwoA: dWOA;
+                                       ^^^^ [1]
+             56: (dwoA: dROB);
+                        ^^^^ [2]
         `,
       ),
   ]),
@@ -736,14 +651,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:50
            50: (roA: WOB);
-                ^^^ ROA. This type is incompatible with
-           50: (roA: WOB);
-                     ^^^ WOB
-            Property \`p\` is incompatible:
-               50: (roA: WOB);
-                    ^^^ ROA. Covariant property \`p\` incompatible with contravariant use in
-               50: (roA: WOB);
-                         ^^^ WOB
+                ^^^ Cannot cast \`roA\` to \`WOB\` because property \`p\` is read-only in \`ROA\` [1] but write-only in \`WOB\` [2].
+            References:
+             17:     declare var roA: ROA;
+                                      ^^^ [1]
+             50: (roA: WOB);
+                       ^^^ [2]
         `,
       ),
     addCode('(droA: dWOB);')
@@ -751,14 +664,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:52
            52: (droA: dWOB);
-                ^^^^ dROA. This type is incompatible with
-           52: (droA: dWOB);
-                      ^^^^ dWOB
-            Indexable signature is incompatible:
-               52: (droA: dWOB);
-                    ^^^^ dROA. Covariant computed property incompatible with contravariant use in
-               52: (droA: dWOB);
-                          ^^^^ dWOB
+                ^^^^ Cannot cast \`droA\` to \`dWOB\` because an index signature declaring the expected key / value type is read-only in \`dROA\` [1] but write-only in \`dWOB\` [2].
+            References:
+             34:     declare var droA: dROA;
+                                       ^^^^ [1]
+             52: (droA: dWOB);
+                        ^^^^ [2]
         `,
       ),
 
@@ -779,19 +690,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:44
            44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
-                        ^^^^^^^^^^^^^ array type. Has some incompatible type argument with
-           44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
-                                        ^^^^^^^^^^^^ array type
-            Type argument \`T\` is incompatible:
-               44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
-                                  ^^^^^^ object type. This type is incompatible with
-               44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
-                                                  ^^^^^ object type
-                Property \`p\` is incompatible:
-                   44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
-                                      ^^^^^^ object type. Covariant property \`p\` incompatible with invariant use in
-                   44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
-                                                      ^^^^^ object type
+                              ^^^^^^ Cannot cast array literal to array type because property \`p\` is read-only in object type [1] but writable in object type [2] in array element.
+            References:
+             44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
+                                ^^^^^^ [1]
+             44: (([roA]: Array<{+p:A}>): Array<{p:A}>);
+                                                ^^^^^ [2]
         `,
       ),
 
@@ -800,19 +704,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:46
            46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
-                        ^^^^^^^^^^^^^ array type. Has some incompatible type argument with
-           46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
-                                        ^^^^^^^^^^^^ array type
-            Type argument \`T\` is incompatible:
-               46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
-                                  ^^^^^^ object type. This type is incompatible with
-               46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
-                                                  ^^^^^ object type
-                Property \`p\` is incompatible:
-                   46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
-                                      ^^^^^^ object type. Contravariant property \`p\` incompatible with invariant use in
-                   46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
-                                                      ^^^^^ object type
+                              ^^^^^^ Cannot cast array literal to array type because property \`p\` is write-only in object type [1] but readable in object type [2] in array element.
+            References:
+             46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
+                                ^^^^^^ [1]
+             46: (([woA]: Array<{-p:A}>): Array<{p:A}>);
+                                                ^^^^^ [2]
         `,
       ),
 
@@ -821,19 +718,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:48
            48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
-                        ^^^^^^^^^^^^ array type. Has some incompatible type argument with
-           48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
-                                       ^^^^^^^^^^^^^ array type
-            Type argument \`T\` is incompatible:
-               48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
-                                  ^^^^^ object type. This type is incompatible with
-               48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
-                                                 ^^^^^^ object type
-                Property \`p\` is incompatible:
-                   48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
-                                      ^^^^^ object type. Invariant property \`p\` incompatible with covariant use in
-                   48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
-                                                     ^^^^^^ object type
+                              ^^^^^ Cannot cast array literal to array type because property \`p\` is writable in object type [1] but read-only in object type [2] in array element.
+            References:
+             48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
+                                ^^^^^ [1]
+             48: (([rwA]: Array<{p:A}>): Array<{+p:A}>);
+                                               ^^^^^^ [2]
         `,
       ),
 
@@ -845,19 +735,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:52
            52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
-                        ^^^^^^^^^^^^^ array type. Has some incompatible type argument with
-           52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
-                                        ^^^^^^^^^^^^^ array type
-            Type argument \`T\` is incompatible:
-               52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
-                                  ^^^^^^ object type. This type is incompatible with
-               52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
-                                                  ^^^^^^ object type
-                Property \`p\` is incompatible:
-                   52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
-                                      ^^^^^^ object type. Contravariant property \`p\` incompatible with covariant use in
-                   52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
-                                                      ^^^^^^ object type
+                              ^^^^^^ Cannot cast array literal to array type because property \`p\` is write-only in object type [1] but read-only in object type [2] in array element.
+            References:
+             52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
+                                ^^^^^^ [1]
+             52: (([woA]: Array<{-p:A}>): Array<{+p:A}>);
+                                                ^^^^^^ [2]
         `,
       ),
 
@@ -866,19 +749,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:54
            54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
-                        ^^^^^^^^^^^^ array type. Has some incompatible type argument with
-           54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
-                                       ^^^^^^^^^^^^^ array type
-            Type argument \`T\` is incompatible:
-               54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
-                                  ^^^^^ object type. This type is incompatible with
-               54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
-                                                 ^^^^^^ object type
-                Property \`p\` is incompatible:
-                   54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
-                                      ^^^^^ object type. Invariant property \`p\` incompatible with contravariant use in
-                   54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
-                                                     ^^^^^^ object type
+                              ^^^^^ Cannot cast array literal to array type because property \`p\` is readable in object type [1] but write-only in object type [2] in array element.
+            References:
+             54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
+                                ^^^^^ [1]
+             54: (([rwA]: Array<{p:A}>): Array<{-p:A}>);
+                                               ^^^^^^ [2]
         `,
       ),
 
@@ -887,19 +763,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:56
            56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
-                        ^^^^^^^^^^^^^ array type. Has some incompatible type argument with
-           56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
-                                        ^^^^^^^^^^^^^ array type
-            Type argument \`T\` is incompatible:
-               56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
-                                  ^^^^^^ object type. This type is incompatible with
-               56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
-                                                  ^^^^^^ object type
-                Property \`p\` is incompatible:
-                   56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
-                                      ^^^^^^ object type. Covariant property \`p\` incompatible with contravariant use in
-                   56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
-                                                      ^^^^^^ object type
+                              ^^^^^^ Cannot cast array literal to array type because property \`p\` is read-only in object type [1] but write-only in object type [2] in array element.
+            References:
+             56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
+                                ^^^^^^ [1]
+             56: (([roA]: Array<{+p:A}>): Array<{-p:A}>);
+                                                ^^^^^^ [2]
         `,
       ),
 
@@ -920,9 +789,7 @@ export default suite(({addFile, addFiles, addCode}) => [
        `
          test.js:46
           46: (woA: $Shape<RWA>);
-               ^^^ WOA. Contravariant property \`p\` incompatible with covariant use in
-          46: (woA: $Shape<RWA>);
-                           ^^^ RWA
+               ^^^ Cannot cast \`woA\` to \`RWA\` because property \`p\` is not readable.
        `,
      ),
 
@@ -938,9 +805,7 @@ export default suite(({addFile, addFiles, addCode}) => [
        `
          test.js:52
           52: (woB: $Shape<RWA>);
-               ^^^ WOB. Contravariant property \`p\` incompatible with covariant use in
-          52: (woB: $Shape<RWA>);
-                           ^^^ RWA
+               ^^^ Cannot cast \`woB\` to \`RWA\` because property \`p\` is not readable.
        `,
      ),
 
@@ -950,14 +815,12 @@ export default suite(({addFile, addFiles, addCode}) => [
        `
          test.js:54
           54: (rwA: $Shape<RWB>);
-               ^^^ RWA. This type is incompatible with
-          54: (rwA: $Shape<RWB>);
-                           ^^^ RWB
-           Property \`p\` is incompatible:
-               9:     type RWA = {p: A}
-                                     ^ A. This type is incompatible with
-              12:     type RWB = {p: B}
-                                     ^ B
+               ^^^ Cannot cast \`rwA\` to \`RWB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+           References:
+             9:     type RWA = {p: A}
+                                   ^ [1]
+            12:     type RWB = {p: B}
+                                   ^ [2]
        `,
      ),
 
@@ -967,14 +830,12 @@ export default suite(({addFile, addFiles, addCode}) => [
        `
          test.js:56
           56: (roA: $Shape<RWB>);
-               ^^^ ROA. This type is incompatible with
-          56: (roA: $Shape<RWB>);
-                           ^^^ RWB
-           Property \`p\` is incompatible:
-              10:     type ROA = {+p: A}
-                                      ^ A. This type is incompatible with
-              12:     type RWB = {p: B}
-                                     ^ B
+               ^^^ Cannot cast \`roA\` to \`RWB\` because \`A\` [1] is incompatible with \`B\` [2] in property \`p\`.
+           References:
+            10:     type ROA = {+p: A}
+                                    ^ [1]
+            12:     type RWB = {p: B}
+                                   ^ [2]
        `,
      ),
 
@@ -984,9 +845,7 @@ export default suite(({addFile, addFiles, addCode}) => [
        `
          test.js:58
           58: (woA: $Shape<RWB>);
-               ^^^ WOA. Contravariant property \`p\` incompatible with covariant use in
-          58: (woA: $Shape<RWB>);
-                           ^^^ RWB
+               ^^^ Cannot cast \`woA\` to \`RWB\` because property \`p\` is not readable.
        `,
      ),
   ]),

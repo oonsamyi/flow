@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -45,11 +45,11 @@ let path_patt =
   let star2 = Str.regexp_string "**" in
   let qmark = Str.regexp_string "?" in
   fun path ->
-    let str = Path.to_string path 
+    let str = Path.to_string path
       |> Sys_utils.normalize_filename_dir_sep in
     (* because we accept both * and **, convert in 2 steps *)
     let results = Str.full_split star2 str in
-    let results = List.map (fun r -> match r with
+    let results = Core_list.map ~f:(fun r -> match r with
       | Str.Text s ->
           (* note: unix directory seperators specifiers only. Windows directory
            * seperators will already have been normalized to unix directory

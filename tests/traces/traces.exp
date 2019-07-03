@@ -1,8 +1,19 @@
-Error: Traces.js:3
-  3: function f0(x) { g0(x) }
-                         ^ number. This type is incompatible with the expected param type of
-  2: function g0(y:string) { }
-                   ^^^^^^ string
+Error --------------------------------------------------------------------------------------------------- Traces.js:3:21
+
+Cannot call `g0` with `x` bound to `y` because number [1] is incompatible with string [2].
+
+   Traces.js:3:21
+   3| function f0(x) { g0(x) }
+                          ^
+
+References:
+   Traces.js:4:4
+   4| f0(0);
+         ^ [1]
+   Traces.js:2:15
+   2| function g0(y:string) { }
+                    ^^^^^^ [2]
+
 Trace:
 * path 1:
   3: function f0(x) { g0(x) }
@@ -26,11 +37,23 @@ Trace:
   3: function f0(x) { g0(x) }
                          ^ ~> ReposLowerT [`x`]
 
-Error: Traces.js:8
-  8: function f1(x, y) { g1(x, y) }
-                               ^ number. This type is incompatible with the expected param type of
-  7: function g1(a:string, b:string) { }
-                             ^^^^^^ string
+
+Error --------------------------------------------------------------------------------------------------- Traces.js:8:27
+
+Cannot call `g1` with `y` bound to `b` because number [1] is incompatible with string [2].
+
+   Traces.js:8:27
+   8| function f1(x, y) { g1(x, y) }
+                                ^
+
+References:
+   Traces.js:9:11
+   9| f1("hey", 0);
+                ^ [1]
+   Traces.js:7:25
+   7| function g1(a:string, b:string) { }
+                              ^^^^^^ [2]
+
 Trace:
 * path 1:
   8: function f1(x, y) { g1(x, y) }
@@ -54,9 +77,20 @@ Trace:
   8: function f1(x, y) { g1(x, y) }
                                ^ ~> ReposLowerT [`y`]
 
-Error: Traces.js:14
- 14: f2(function(x) { return x * x });
-                             ^ string. The operand of an arithmetic operation must be a number.
+
+Error -------------------------------------------------------------------------------------------------- Traces.js:14:25
+
+Cannot perform arithmetic operation because string [1] is not a number.
+
+   Traces.js:14:25
+   14| f2(function(x) { return x * x });
+                               ^
+
+References:
+   Traces.js:12:22
+   12| function g2(ylam: (s:string) => number) { }
+                            ^^^^^^ [1]
+
 Trace:
 * path 1:
  14: f2(function(x) { return x * x });
@@ -80,9 +114,20 @@ Trace:
  12: function g2(ylam: (s:string) => number) { }
                           ^^^^^^ ~> ReposLowerT [string] (from [not shown])
 
-Error: Traces.js:14
- 14: f2(function(x) { return x * x });
-                                 ^ string. The operand of an arithmetic operation must be a number.
+
+Error -------------------------------------------------------------------------------------------------- Traces.js:14:29
+
+Cannot perform arithmetic operation because string [1] is not a number.
+
+   Traces.js:14:29
+   14| f2(function(x) { return x * x });
+                                   ^
+
+References:
+   Traces.js:12:22
+   12| function g2(ylam: (s:string) => number) { }
+                            ^^^^^^ [1]
+
 Trace:
 * path 1:
  14: f2(function(x) { return x * x });
@@ -106,9 +151,20 @@ Trace:
  12: function g2(ylam: (s:string) => number) { }
                           ^^^^^^ ~> ReposLowerT [string] (from [not shown])
 
-Error: Traces.js:19
- 19: function double(n) { return n * 2 }
-                                 ^ string. The operand of an arithmetic operation must be a number.
+
+Error -------------------------------------------------------------------------------------------------- Traces.js:19:29
+
+Cannot perform arithmetic operation because string [1] is not a number.
+
+   Traces.js:19:29
+   19| function double(n) { return n * 2 }
+                                   ^
+
+References:
+   Traces.js:17:22
+   17| function g3(ylam: (s:string) => number) { }
+                            ^^^^^^ [1]
+
 Trace:
 * path 1:
  19: function double(n) { return n * 2 }
@@ -132,101 +188,6 @@ Trace:
  17: function g3(ylam: (s:string) => number) { }
                           ^^^^^^ ~> ReposLowerT [string] (from [not shown])
 
-Error: Traces2.js:18
- 18:     return <B bar="hey"/>;
-                ^^^^^^^^^^^^^^ React.Element. This type is incompatible with the expected return type of
- 14: function f(b): Element<*> {
-                    ^^^^^^^^^^ React.Element
-Trace:
-* path 1:
- 11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ObjProtoT [object literal]
-  7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> LookupT [propTypes of React component] (from path 2)
-* path 2:
- 11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ObjT [propTypes of React component]
-  7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> UseT(PropertyCompatibility, ObjT) [propTypes of React component] (from path 3)
-* path 3:
-159:   +props: React$ElementProps<ElementType>,
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ OpenT [React element props]. See lib: <BUILTINS>/react.js:159
-159:   +props: React$ElementProps<ElementType>,
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> UseT(PropertyCompatibility, OpenT) [React element props] (from [not shown]). See lib: <BUILTINS>/react.js:159
-  Property `props` is incompatible:
-     11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component. This type is incompatible with
-      7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component
-      Property `foo` is incompatible:
-          7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ property `foo`. Property not found in
-         11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component
-
-Error: Traces2.js:18
- 18:     return <B bar="hey"/>;
-                 ^ React.Component. Has some incompatible type argument with
- 18:     return <B bar="hey"/>;
-                 ^ React.Component
-Trace:
-* path 1:
-  7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ObjT [propTypes of React component]
- 11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> UseT(UnifyFlip, ObjT) [propTypes of React component] (from path 2)
-* path 2:
- 11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ObjT [propTypes of React component]
-159:   +props: React$ElementProps<ElementType>,
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> UseT(TypeArgCompatibility, OpenT) [React element props] (from path 3). See lib: <BUILTINS>/react.js:159
-* path 3:
- 18:     return <B bar="hey"/>;
-                 ^ InstanceT [`React.Component`]
- 18:     return <B bar="hey"/>;
-                 ^ ~> ExtendsUseT [extends `React.Component`] (from [not shown])
-  Type argument `Props` is incompatible:
-      7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component. This type is incompatible with
-     11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component
-      Property `foo` is incompatible:
-          7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ property `foo`. Property not found in
-         11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component
-
-Error: Traces2.js:18
- 18:     return <B bar="hey"/>;
-                 ^ React.Component. Has some incompatible type argument with
- 18:     return <B bar="hey"/>;
-                 ^ React.Component
-Trace:
-* path 1:
-  7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ObjT [propTypes of React component]
- 11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> UseT(UnifyFlip, ObjT) [propTypes of React component] (from path 2)
-* path 2:
- 11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ObjT [propTypes of React component]
-159:   +props: React$ElementProps<ElementType>,
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ~> UseT(TypeArgCompatibility, OpenT) [React element props] (from path 3). See lib: <BUILTINS>/react.js:159
-* path 3:
- 18:     return <B bar="hey"/>;
-                 ^ InstanceT [`React.Component`]
- 18:     return <B bar="hey"/>;
-                 ^ ~> ExtendsUseT [extends `React.Component`] (from [not shown])
-  Type argument `Props` is incompatible:
-     11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component. This type is incompatible with
-      7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component
-      Property `bar` is incompatible:
-         11:   propTypes: { bar: React.PropTypes.string.isRequired }
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ property `bar`. Property not found in
-          7:   propTypes: { foo: React.PropTypes.string.isRequired }
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ propTypes of React component
 
 
-Found 8 errors
+Found 5 errors

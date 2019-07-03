@@ -37,6 +37,8 @@ let { x, y } = { x: 0, y: 0 };
 let { x: _x, y: _y } = { x, y };
 ({ x: _x, y: _y });
 
+let { [x]: y } = { };
+
 // Not in scope
 wut1;
 wut1 = wut2;
@@ -73,14 +75,8 @@ class SuperClass {
 
 class SubClass extends SuperClass {}
 
-type SimilarType = {
-  bar(): void,
-  baz: string,
-};
-
 const superClass = new SuperClass();
 const subClass = new SubClass();
-const similarType: SimilarType = f;
 const externalClass = new ExternalClass();
 
 superClass.bar();
@@ -93,10 +89,12 @@ subClass.bar();
 subClass.baz;
 subClass.baz;
 
-similarType.bar();
-similarType.bar();
-similarType.baz;
-similarType.baz;
+externalClass.bar();
+externalClass.bar();
 
-externalClass.bar();
-externalClass.bar();
+class WithTypeParams<X, Y> {
+  bar(): void { }
+  baz(): void {
+    this.bar();
+  }
+}

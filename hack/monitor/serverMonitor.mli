@@ -2,9 +2,8 @@
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the "hack" directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the "hack" directory of this source tree.
  *
 *)
 
@@ -16,6 +15,7 @@ module Make_monitor :
 
       (** Start a monitor without running the check loop. Useful for testing. *)
       val start_monitor:
+        ?current_version:string ->
         waiting_client:Unix.file_descr option ->
         max_purgatory_clients:int ->
         SC.server_start_options ->
@@ -29,6 +29,7 @@ module Make_monitor :
       (** Start the monitor and repeatedly run the check and run loop.
        * Does not return. *)
       val start_monitoring:
+        ?current_version:string ->
         waiting_client:Unix.file_descr option ->
         max_purgatory_clients:int ->
         SC.server_start_options ->

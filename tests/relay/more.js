@@ -9,6 +9,7 @@
 
 declare opaque type FragmentTypeof;
 declare opaque type FragmentReference<T: FragmentTypeof>;
+declare opaque type BadFragmentReference<T>;
 declare opaque type RelayProp;
 
 const React = require('React');
@@ -35,8 +36,8 @@ declare function createFragmentContainer<Props: {}>(
 ): React.ComponentType<$RelayProps<Props, RelayProp>>;
 
 /*********************************
-  * From generated files          *
-  *********************************/
+ * From generated files          *
+ *********************************/
 
 declare export opaque type RelayModernTypedFlowtest_user$reference: FragmentTypeof;
 export type RelayModernTypedFlowtest_user = {|
@@ -51,8 +52,8 @@ export type RelayModernTypedFlowtest_users = $ReadOnlyArray<{|
 |}>;
 
 /*********************************
-  * RelayModernTyped-flowtest     *
-  *********************************/
+ * RelayModernTyped-flowtest     *
+ *********************************/
 
 class SingularTest extends React.Component<{
   string: string,
@@ -83,7 +84,7 @@ declare var usersRef: $ReadOnlyArray<{
 }>;
 
 declare var nonUserRef: {
-  +__fragments: FragmentReference<{thing: true}>,
+  +__fragments: BadFragmentReference<{thing: true}>,
 };
 
 function cb(): void {}

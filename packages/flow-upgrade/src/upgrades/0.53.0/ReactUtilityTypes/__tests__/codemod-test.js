@@ -7,14 +7,9 @@
 const path = require('path');
 const fs = require('fs');
 const cp = require('child_process');
-const jscodeshiftFlowParser = require('jscodeshift/parser/flow');
-const jscodeshift = require('jscodeshift').withParser(jscodeshiftFlowParser);
+const jscodeshift = require('jscodeshift').withParser('flow');
 const transform = require('../codemod');
 
-const JSCODESHIFT_BIN = path.resolve(
-  __dirname,
-  '../../node_modules/.bin/jscodeshift',
-);
 const FIXTURES_DIR = path.join(__dirname, './fixtures');
 
 const HEADERS = [

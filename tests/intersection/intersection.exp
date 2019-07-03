@@ -1,50 +1,59 @@
-Error: pred.js:17
- 17:     || options.writableObjectMode; // error, undefined ~> boolean
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^ undefined. This type is incompatible with the expected return type of
- 14: function hasObjectMode_bad(options: DuplexStreamOptions): boolean {
-                                                               ^^^^^^^ boolean
+Error ---------------------------------------------------------------------------------------------------- pred.js:15:10
 
-Error: proper_blaming.js:9
-  9: x.nope; // error here
-       ^^^^ property `nope`. Property cannot be accessed on possibly null value
-  9: x.nope; // error here
-     ^ null
+Cannot return `options.objectMode || options.readableObjectMode || options.writableObjectMode` because undefined [1] is
+incompatible with boolean [2].
 
-Error: test_obj.js:29
- 29: var e: E = c; // error
-                ^ intersection. This type is incompatible with
- 29: var e: E = c; // error
-            ^ E
-  Member 1:
-   33: type C = { [key: string]: number } & { [key: string]: number };
-                ^^^^^^^^^^^^^^^^^^^^^^^^^ object type. See lib: lib/lib.js:33
-  Error:
-   29: var e: E = c; // error
-                  ^ c
-   29: var e: E = c; // error
-              ^ E. This type is incompatible with
-   33: type C = { [key: string]: number } & { [key: string]: number };
-                ^^^^^^^^^^^^^^^^^^^^^^^^^ object type. See lib: lib/lib.js:33
-    Indexable signature is incompatible:
-       33: type C = { [key: string]: number } & { [key: string]: number };
-                                     ^^^^^^ number. This type is incompatible with. See lib: lib/lib.js:33
-       28: type E = { [key: string]: string };
-                                     ^^^^^^ string
-  Member 2:
-   33: type C = { [key: string]: number } & { [key: string]: number };
-                                            ^^^^^^^^^^^^^^^^^^^^^^^^^ object type. See lib: lib/lib.js:33
-  Error:
-   29: var e: E = c; // error
-                  ^ c
-   29: var e: E = c; // error
-              ^ E. This type is incompatible with
-   33: type C = { [key: string]: number } & { [key: string]: number };
-                                            ^^^^^^^^^^^^^^^^^^^^^^^^^ object type. See lib: lib/lib.js:33
-    Indexable signature is incompatible:
-       33: type C = { [key: string]: number } & { [key: string]: number };
-                                                                 ^^^^^^ number. This type is incompatible with. See lib: lib/lib.js:33
-       28: type E = { [key: string]: string };
-                                     ^^^^^^ string
+   pred.js:15:10
+                v-----------------
+   15|   return options.objectMode
+   16|     || options.readableObjectMode
+   17|     || options.writableObjectMode; // error, undefined ~> boolean
+           ----------------------------^
+
+References:
+   pred.js:11:25
+   11|   writableObjectMode? : boolean
+                               ^^^^^^^ [1]
+   pred.js:14:59
+   14| function hasObjectMode_bad(options: DuplexStreamOptions): boolean {
+                                                                 ^^^^^^^ [2]
+
+
+Error -------------------------------------------------------------------------------------------- proper_blaming.js:9:1
+
+Cannot get `x.nope` because property `nope` is missing in null [1].
+
+   proper_blaming.js:9:1
+   9| x.nope; // error here
+      ^^^^^^
+
+References:
+   proper_blaming.js:5:14
+   5| type O = {p: null} & E;
+                   ^^^^ [1]
+
+
+Error ------------------------------------------------------------------------------------------------ test_obj.js:29:12
+
+Cannot assign `c` to `e` because:
+ - Either number [1] is incompatible with string [2] in the indexer property.
+ - Or number [3] is incompatible with string [2] in the indexer property.
+
+   test_obj.js:29:12
+   29| var e: E = c; // error
+                  ^
+
+References:
+   lib/lib.js:33:27
+   33| type C = { [key: string]: number } & { [key: string]: number };
+                                 ^^^^^^ [1]
+   test_obj.js:28:27
+   28| type E = { [key: string]: string };
+                                 ^^^^^^ [2]
+   lib/lib.js:33:55
+   33| type C = { [key: string]: number } & { [key: string]: number };
+                                                             ^^^^^^ [3]
+
 
 
 Found 3 errors

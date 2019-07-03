@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -7,6 +7,14 @@
 
 type t =
   | Assertion of string
+  | EnumBooleanMemberNotInitialized of {enum_name: string; member_name: string}
+  | EnumDuplicateMemberName of {enum_name: string; member_name: string}
+  | EnumInconsistentMemberValues of {enum_name: string}
+  | EnumInvalidExplicitType of {enum_name: string; supplied_type: string option}
+  | EnumInvalidMemberInitializer of
+    {enum_name: string; explicit_type: Enum_common.explicit_type option; member_name: string}
+  | EnumNumberMemberNotInitialized of {enum_name: string; member_name: string}
+  | EnumStringMemberInconsistentlyInitailized of {enum_name: string}
   | UnexpectedToken of string
   | UnexpectedTokenWithSuggestion of string * string
   | UnexpectedNumber
@@ -18,6 +26,8 @@ type t =
   | UnexpectedSuperCall
   | UnexpectedEOS
   | UnexpectedVariance
+  | UnexpectedStatic
+  | UnexpectedProto
   | UnexpectedTypeAlias
   | UnexpectedOpaqueTypeAlias
   | UnexpectedTypeAnnotation
@@ -25,7 +35,13 @@ type t =
   | UnexpectedTypeImport
   | UnexpectedTypeExport
   | UnexpectedTypeInterface
+  | UnexpectedSpreadType
+  | UnexpectedExplicitInexactInObject
+  | InexactInsideExact
+  | InexactInsideNonObject
   | NewlineAfterThrow
+  | InvalidFloatBigInt
+  | InvalidSciBigInt
   | InvalidRegExp
   | InvalidRegExpFlags of string
   | UnterminatedRegExp
@@ -49,6 +65,7 @@ type t =
   | StrictParamDupe
   | StrictFunctionName
   | StrictOctalLiteral
+  | StrictNonOctalLiteral
   | StrictDelete
   | StrictDuplicateProperty
   | AccessorDataProperty
@@ -81,7 +98,6 @@ type t =
   | ExportNamelessFunction
   | UnsupportedDecorator
   | MissingTypeParamDefault
-  | WindowsFloatOfString
   | DuplicateDeclareModuleExports
   | AmbiguousDeclareModuleKind
   | GetterArity
@@ -93,7 +109,7 @@ type t =
   | MalformedUnicode
   | DuplicateConstructor
   | DuplicatePrivateFields of string
-  | InvalidFieldName of string * bool * bool
+  | InvalidFieldName of { name: string; static: bool; private_: bool }
   | PrivateMethod
   | PrivateDelete
   | UnboundPrivate of string
@@ -106,6 +122,12 @@ type t =
   | LiteralShorthandProperty
   | ComputedShorthandProperty
   | MethodInDestructuring
+  | TrailingCommaAfterRestElement
+  | OptionalChainingDisabled
+  | OptionalChainNew
+  | OptionalChainTemplate
+  | NullishCoalescingDisabled
+  | WhitespaceInPrivateName
 
 exception Error of (Loc.t * t) list
 
@@ -116,6 +138,73 @@ module PP =
   struct
     let error = function
       | Assertion str -> "Unexpected parser state: "^str
+      | EnumBooleanMemberNotInitialized {enum_name; member_name} ->
+        Printf.sprintf
+          "Boolean enum members need to be initialized. Use either `%s = true,` or \
+          `%s = false,` in enum `%s`."
+          member_name
+          member_name
+          enum_name
+      | EnumDuplicateMemberName {enum_name; member_name} ->
+        Printf.sprintf
+          "Enum member names need to be unique, but the name `%s` has already been \
+          used before in enum `%s`."
+          member_name
+          enum_name
+      | EnumInconsistentMemberValues {enum_name} ->
+        Printf.sprintf
+          "Enum `%s` has inconsistent member initializers. Either use no initializers, or \
+           consistently use literals (either booleans, numbers, or strings) for all \
+           member initializers."
+          enum_name
+      | EnumInvalidExplicitType {enum_name; supplied_type} ->
+        let suggestion = Printf.sprintf
+          "Use one of `boolean`, `number`, `string`, or `symbol` in enum `%s`."
+          enum_name
+        in
+        begin match supplied_type with
+        | Some supplied_type ->
+            Printf.sprintf "Enum type `%s` is not valid. %s"
+            supplied_type
+            suggestion
+        | None ->
+            Printf.sprintf "Supplied enum type is not valid. %s"
+            suggestion
+        end
+      | EnumInvalidMemberInitializer {enum_name; explicit_type; member_name} ->
+        begin match explicit_type with
+        | Some (Enum_common.Boolean as explicit_type)
+        | Some (Enum_common.Number as explicit_type)
+        | Some (Enum_common.String as explicit_type) ->
+          let explicit_type_str = Enum_common.string_of_explicit_type explicit_type in
+          Printf.sprintf
+            "Enum `%s` has type `%s`, so the initializer of `%s` needs to be a %s literal."
+            enum_name
+            explicit_type_str
+            member_name
+            explicit_type_str
+        | Some Enum_common.Symbol ->
+          Printf.sprintf
+            "Symbol enum members cannot be initialized. Use `%s,` in enum `%s`."
+            member_name
+            enum_name
+        | None ->
+          Printf.sprintf
+            "The enum member initializer for `%s` needs to be a literal \
+            (either a boolean, number, or string) in enum `%s`."
+            member_name
+            enum_name
+        end
+      | EnumNumberMemberNotInitialized {enum_name; member_name} ->
+        Printf.sprintf
+          "Number enum members need to be initialized, e.g. `%s = 1,` in enum `%s`."
+          member_name
+          enum_name
+      | EnumStringMemberInconsistentlyInitailized {enum_name} ->
+        Printf.sprintf
+          "String enum members need to consistently either all use initializers, \
+          or use no initializers, in enum %s."
+          enum_name
       | UnexpectedToken token->  "Unexpected token "^token
       | UnexpectedTokenWithSuggestion (token, suggestion) ->
           Printf.sprintf "Unexpected token `%s`. Did you mean `%s`?"
@@ -130,6 +219,8 @@ module PP =
       | UnexpectedSuperCall -> "`super()` is only valid in a class constructor"
       | UnexpectedEOS ->  "Unexpected end of input"
       | UnexpectedVariance -> "Unexpected variance sigil"
+      | UnexpectedStatic -> "Unexpected static modifier"
+      | UnexpectedProto -> "Unexpected proto modifier"
       | UnexpectedTypeAlias -> "Type aliases are not allowed in untyped mode"
       | UnexpectedOpaqueTypeAlias -> "Opaque type aliases are not allowed in untyped mode"
       | UnexpectedTypeAnnotation -> "Type annotations are not allowed in untyped mode"
@@ -137,7 +228,17 @@ module PP =
       | UnexpectedTypeImport -> "Type imports are not allowed in untyped mode"
       | UnexpectedTypeExport -> "Type exports are not allowed in untyped mode"
       | UnexpectedTypeInterface -> "Interfaces are not allowed in untyped mode"
+      | UnexpectedSpreadType ->
+          "Spreading a type is only allowed inside an object type"
+      | UnexpectedExplicitInexactInObject ->
+          "Explicit inexact syntax must come at the end of an object type"
+      | InexactInsideExact ->
+          "Explicit inexact syntax cannot appear inside an explicit exact object type"
+      | InexactInsideNonObject ->
+          "Explicit inexact syntax can only appear inside an object type"
       | NewlineAfterThrow ->  "Illegal newline after throw"
+      | InvalidFloatBigInt -> "A bigint literal must be an integer"
+      | InvalidSciBigInt -> "A bigint literal cannot use exponential notation"
       | InvalidRegExp -> "Invalid regular expression"
       | InvalidRegExpFlags flags -> "Invalid flags supplied to RegExp constructor '"^flags^"'"
       | UnterminatedRegExp ->  "Invalid regular expression: missing /"
@@ -164,6 +265,7 @@ module PP =
       | StrictParamDupe -> "Strict mode function may not have duplicate parameter names"
       | StrictFunctionName ->  "Function name may not be eval or arguments in strict mode"
       | StrictOctalLiteral ->  "Octal literals are not allowed in strict mode."
+      | StrictNonOctalLiteral -> "Number literals with leading zeros are not allowed in strict mode."
       | StrictDelete ->  "Delete of an unqualified identifier in strict mode."
       | StrictDuplicateProperty ->  "Duplicate data property in object literal not allowed in strict mode"
       | AccessorDataProperty ->  "Object literal may not have data and accessor property with the same name"
@@ -219,10 +321,6 @@ module PP =
       | UnsupportedDecorator -> "Found a decorator in an unsupported position."
       | MissingTypeParamDefault -> "Type parameter declaration needs a default, \
           since a preceding type parameter declaration has a default."
-      | WindowsFloatOfString -> "The Windows version of OCaml has a bug in how \
-          it parses hexadecimal numbers. It is fixed in OCaml 4.03.0. Until we \
-          can switch to 4.03.0, please avoid either hexadecimal notation or \
-          Windows."
       | DuplicateDeclareModuleExports -> "Duplicate `declare module.exports` \
           statement!"
       | AmbiguousDeclareModuleKind -> "Found both `declare module.exports` and \
@@ -247,7 +345,7 @@ module PP =
         "Classes may only have one constructor"
       | DuplicatePrivateFields name ->
         "Private fields may only be declared once. `#" ^ name ^ "` is declared more than once."
-      | InvalidFieldName (name, static, private_) ->
+      | InvalidFieldName { name; static; private_; } ->
         let static_modifier = if static then "static " else "" in
         let name = if private_ then "#" ^ name else name in
         "Classes may not have " ^ static_modifier ^ "fields named `" ^ name ^ "`."
@@ -268,4 +366,16 @@ module PP =
       | LiteralShorthandProperty -> "Literals cannot be used as shorthand properties."
       | ComputedShorthandProperty -> "Computed properties must have a value."
       | MethodInDestructuring -> "Object pattern can't contain methods"
+      | TrailingCommaAfterRestElement -> "A trailing comma is not permitted after the rest element"
+      | OptionalChainingDisabled -> "The optional chaining plugin must be enabled in order to \
+        use the optional chaining operator (`?.`). Optional chaining is an active early-stage \
+        feature proposal which may change and is not enabled by default. To enable support in \
+        the parser, use the `esproposal_optional_chaining` option."
+      | OptionalChainNew -> "An optional chain may not be used in a `new` expression."
+      | OptionalChainTemplate -> "Template literals may not be used in an optional chain."
+      | NullishCoalescingDisabled -> "The nullish coalescing plugin must be enabled in order to \
+        use the nullish coalescing operator (`??`). Nullish coalescing is an active early-stage \
+        feature proposal which may change and is not enabled by default. To enable support in \
+        the parser, use the `esproposal_nullish_coalescing` option."
+      | WhitespaceInPrivateName -> "Unexpected whitespace between `#` and identifier"
   end

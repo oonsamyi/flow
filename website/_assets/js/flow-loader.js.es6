@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -54,9 +54,13 @@ export function load(version) {
     `/static/${version}/flowlib/node.js`,
     `/static/${version}/flowlib/react.js`,
     `/static/${version}/flowlib/streams.js`,
+  ] : majorVersion <= 71 ? [
+    `/static/${version}/flowlib/core.js`,
+    `/static/${version}/flowlib/react.js`,
   ] : [
     `/static/${version}/flowlib/core.js`,
     `/static/${version}/flowlib/react.js`,
+    `/static/${version}/flowlib/intl.js`,
   ];
   const flowLoader = new Promise(function(resolve) {
     requirejs([`/static/${version}/flow.js`], resolve);

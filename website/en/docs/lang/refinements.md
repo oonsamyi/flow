@@ -2,7 +2,7 @@
 layout: guide
 ---
 
-Refinements are a frequently used aspect of any type system. They are so
+Refinements are a frequently used aspect of many type systems. They are so
 ingrained in the way that we program and even the way that we think you might
 not even notice them.
 
@@ -139,8 +139,8 @@ function method(value: { prop?: string }) {
 method(obj);
 ```
 
-Inside of `otherMethod()` we are sometimes removing `prop`. Flow doesn't know
-if the `if (value.prop)` check is still true, so it invalidates the refinement.
+Inside of `otherMethod()` we sometimes remove `prop`. Flow doesn't know if the
+`if (value.prop)` check is still true, so it invalidates the refinement.
 
 There's a straightforward way to get around this. Store the value before
 calling another method and use the stored value instead. This way you can

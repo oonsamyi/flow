@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -10,7 +10,7 @@ open Severity
 
 type 'a t
 
-val of_default: 'a -> 'a t
+val of_default: severity -> severity t
 
 val set_value: lint_kind -> ('a * Loc.t option) -> 'a t -> 'a t
 
@@ -31,9 +31,11 @@ val fold: (lint_kind -> 'a * Loc.t option -> 'b -> 'b) -> 'a t -> 'b -> 'b
 (* Map over all lint kinds with an explicit value *)
 val map: ('a * Loc.t option -> 'a * Loc.t option) -> 'a t -> 'a t
 
+val default_lint_severities : (lint_kind * (severity * 'a option)) list
+
 (* SEVERITY-SPECIFIC FUNCTIONS *)
 
-val default_severities: severity t
+val empty_severities: severity t
 (* True iff get_state returns Warn or Err, false otherwise *)
 val is_enabled: lint_kind -> severity t -> bool
 (* Always the logical opposite of is_enabled *)

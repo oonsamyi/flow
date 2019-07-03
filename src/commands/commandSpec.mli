@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -14,6 +14,7 @@ module ArgSpec : sig
   | Arg
   | Arg_List
   | Arg_Rest
+  | Arg_Command
 
   type flag_metadata = {
     doc : string;
@@ -23,8 +24,8 @@ module ArgSpec : sig
 
   val empty : ('a, 'a) t
   val flag : string -> 'a flag_t -> doc:string -> ?env:string -> ('b, 'a -> 'c) t -> ('b, 'c) t
-  val anon : string -> 'a flag_t -> doc:string -> ('b, 'a -> 'c) t -> ('b, 'c) t
-  val rest : doc:string -> ('a, string list option -> 'b) t -> ('a, 'b) t
+  val anon : string -> 'a flag_t -> ('b, 'a -> 'c) t -> ('b, 'c) t
+  val rest : ('a, string list option -> 'b) t -> ('a, 'b) t
   val dummy : 'a -> ('b, 'a -> 'c) t -> ('b, 'c) t
   val collect : ('main -> 'a -> 'new_main) -> ('b, 'main) t -> ('b, 'a -> 'new_main) t
 
@@ -32,7 +33,8 @@ module ArgSpec : sig
   val string : string option flag_t
   val bool : bool option flag_t
   val int : int option flag_t
-  val enum : string list -> string option flag_t
+  val enum : (string * 't) list -> 't option flag_t
+  val command : (string * 'cmd) list -> ('cmd * string list) option flag_t
 
   val required : ?default:'a -> 'a option flag_t -> 'a flag_t
   val optional : 'a option flag_t -> 'a option flag_t

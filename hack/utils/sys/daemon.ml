@@ -2,9 +2,8 @@
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the "hack" directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the "hack" directory of this source tree.
  *
  *)
 
@@ -110,7 +109,7 @@ end = struct
         ~mode:[Open_binary]
         ~temp_dir:Sys_utils.temp_dir_name
         "daemon_param" ".bin" in
-    output_value oc data;
+    Marshal.to_channel oc data [Marshal.Closures];
     close_out oc;
     Unix.putenv "HH_SERVER_DAEMON_PARAM" file
 
@@ -135,7 +134,7 @@ end = struct
         Sys.remove file;
         res
       with exn ->
-        failwith "Can't find daemon parameters." in
+        failwith ("Can't find daemon parameters: " ^ (Printexc.to_string exn)) in
     (entry, param,
      (Timeout.in_channel_of_descr in_handle,
       Unix.out_channel_of_descr out_handle))
@@ -149,6 +148,17 @@ end
 type ('param, 'input, 'output) entry = ('param, 'input, 'output) Entry.t
 
 let exec entry param ic oc =
+  (**
+  * The name "exec" is a bit of a misnomer. By the time we
+  * get here, the "exec" syscall has already finished and the
+  * process image has been replaced. We're using "exec" here to mean
+  * running the proper entry.
+  *
+  * Since Linux's "exec" has already completed, we can actaully set
+  * FD_CLOEXEC on the opened channels.
+  *)
+  let () = Unix.set_close_on_exec (descr_of_in_channel ic) in
+  let () = Unix.set_close_on_exec (descr_of_out_channel oc) in
   let f = Entry.find entry in
   try f param (ic, oc); exit 0
   with e ->
@@ -169,32 +179,20 @@ let fd_of_path path =
 let null_fd () = fd_of_path Sys_utils.null_path
 
 let setup_channels channel_mode =
-  match channel_mode with
-  | `pipe ->
-    let parent_in, child_out = Unix.pipe () in
-    let child_in, parent_out = Unix.pipe () in
-    (* Close descriptors on exec so they are not leaked. *)
-    Unix.set_close_on_exec parent_in;
-    Unix.set_close_on_exec parent_out;
-    (parent_in, child_out), (child_in, parent_out)
-  | `socket ->
-    let parent_fd, child_fd = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-    (** FD's on sockets are bi-directional. *)
-    (parent_fd, child_fd), (child_fd, parent_fd)
+  let mk = match channel_mode with
+    | `pipe -> fun () -> Unix.pipe ()
+    | `socket -> fun () -> Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0
+  in
+  let parent_in, child_out = mk () in
+  let child_in, parent_out = mk () in
+  Unix.set_close_on_exec parent_in;
+  Unix.set_close_on_exec parent_out;
+  (parent_in, child_out), (child_in, parent_out)
 
-let make_pipe (descr_in, descr_out)  =
+let descr_as_channels (descr_in, descr_out)  =
   let ic = Timeout.in_channel_of_descr descr_in in
   let oc = Unix.out_channel_of_descr descr_out in
   ic, oc
-
-let close_pipe channel_mode (ch_in, ch_out) =
-  match channel_mode with
-  | `pipe ->
-    Timeout.close_in ch_in;
-    close_out ch_out
-  | `socket ->
-    (** the in and out FD's are the same. Close only once. *)
-    Timeout.close_in ch_in
 
 (* This only works on Unix, and should be avoided as far as possible. Use
  * Daemon.spawn instead. *)
@@ -205,14 +203,18 @@ let fork
     (param : param) : ('b, 'a) handle =
   let (parent_in, child_out), (child_in, parent_out)
       = setup_channels channel_mode in
-    let (parent_in, child_out) = make_pipe (parent_in, child_out) in
-    let (child_in, parent_out) = make_pipe (child_in, parent_out) in
+  (** Since don't use exec, we can actually set CLOEXEC before the fork. *)
+  Unix.set_close_on_exec child_in;
+  Unix.set_close_on_exec child_out;
+  let (parent_in, child_out) = descr_as_channels (parent_in, child_out) in
+  let (child_in, parent_out) = descr_as_channels (child_in, parent_out) in
   match Fork.fork () with
   | -1 -> failwith "Go get yourself a real computer"
   | 0 -> (* child *)
     (try
       ignore(Unix.setsid());
-      close_pipe channel_mode (parent_in, parent_out);
+      Timeout.close_in parent_in;
+      close_out parent_out;
       Sys_utils.with_umask 0o111 begin fun () ->
         let fd = null_fd () in
         Unix.dup2 fd Unix.stdin;
@@ -230,7 +232,8 @@ let fork
       Printexc.print_backtrace stderr;
       exit 1)
   | pid -> (* parent *)
-    close_pipe channel_mode (child_in, child_out);
+    Timeout.close_in child_in;
+    close_out child_out;
     { channels = parent_in, parent_out; pid }
 
 let spawn
@@ -247,14 +250,8 @@ let spawn
   let name = Option.value ~default:(Entry.name_of_entry entry) name in
   let pid = Unix.create_process exe [|exe; name|] stdin stdout stderr in
   Entry.clear_context ();
-  (match channel_mode with
-  | `pipe ->
-    Unix.close child_in;
-    Unix.close child_out;
-  | `socket ->
-    (** the in and out FD's are the same. Close only once. *)
-    Unix.close child_in);
-
+  Unix.close child_in;
+  Unix.close child_out;
   let close_if_open fd =
     try Unix.close fd
     with Unix.Unix_error (Unix.EBADF, _, _) -> ()
@@ -262,7 +259,7 @@ let spawn
   if stdin <> Unix.stdin then close_if_open stdin;
   if stdout <> Unix.stdout then close_if_open stdout;
   if stderr <> Unix.stderr && stderr <> stdout then close_if_open stderr;
-  
+
   PidLog.log
     ~reason:(Entry.name_of_entry entry)
     ~no_fail:true

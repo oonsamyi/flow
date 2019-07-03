@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2017-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -19,6 +19,7 @@ val send_persistent_request :
 val notify_new_persistent_connection :
   client_id:Persistent_connection_prot.client_id ->
   logging_context:FlowEventLogger.logging_context ->
+  lsp:Lsp.Initialize.params option ->
   unit
 
 val notify_dead_persistent_connection :

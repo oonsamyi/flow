@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -24,21 +24,23 @@ let spec = {
       CommandUtils.exe_name;
   args = CommandSpec.ArgSpec.(
     empty
-    |> server_and_json_flags
+    |> base_flags
+    |> connect_and_json_flags
     |> root_flag
     |> strip_root_flag
     |> from_flag
+    |> wait_for_recheck_flag
     |> anon "modules" (required (list_of string))
-        ~doc:"Module name(s) to find"
   )
 }
 
-let main option_values json pretty root strip_root from modules () =
-  FlowEventLogger.set_from from;
-  let root = guess_root root in
+let main base_flags option_values json pretty root strip_root wait_for_recheck modules () =
+  let flowconfig_name = base_flags.Base_flags.flowconfig_name in
+  let root = guess_root flowconfig_name root in
 
-  let request = ServerProt.Request.GET_IMPORTS modules in
-  let (requirements_map, non_flow) = match connect_and_make_request option_values root request with
+  let request = ServerProt.Request.GET_IMPORTS { module_names = modules; wait_for_recheck; } in
+  let (requirements_map, non_flow) = match connect_and_make_request flowconfig_name option_values
+    root request with
   | ServerProt.Response.GET_IMPORTS response -> response
   | response -> failwith_bad_response ~request ~response
   in
@@ -72,10 +74,10 @@ let main option_values json pretty root strip_root from modules () =
     ) non_flow [] in
     let json_imports = SMap.fold (fun module_name assoc acc ->
       let requirements = List.fold_left (fun acc (req, locs) ->
-        List.fold_left (fun acc loc ->
+        Nel.fold_left (fun acc loc ->
           JSON_Object (
             ("import", JSON_String req) ::
-            ("loc", Reason.json_of_loc ~strip_root loc) ::
+            ("loc", json_of_loc_with_offset ~strip_root loc) ::
             (Errors.deprecated_json_props_of_loc ~strip_root loc)
           ) :: acc
         ) acc locs
@@ -87,7 +89,7 @@ let main option_values json pretty root strip_root from modules () =
       (module_name, json) :: acc
     ) requirements_map [] in
     let json = JSON_Object (List.append json_non_flow json_imports) in
-    print_endline (json_to_string ~pretty json)
+    print_json_endline ~pretty json
   ) else (
     let print_imports module_name =
       if (SMap.mem module_name requirements_map)
@@ -95,7 +97,7 @@ let main option_values json pretty root strip_root from modules () =
         let requirements = SMap.find_unsafe module_name requirements_map in
         Printf.printf "Imports for module '%s':\n" module_name;
         List.iter (fun (req, locs) ->
-          List.iter (fun loc ->
+          Nel.iter (fun loc ->
             let loc_str = range_string_of_loc ~strip_root loc in
             Printf.printf "\t%s@%s\n" req loc_str
           ) locs

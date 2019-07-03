@@ -2,9 +2,8 @@
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the "hack" directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the "hack" directory of this source tree.
  *
  *)
 
@@ -84,18 +83,35 @@ let supports_color =
       value
     end
 
+let should_color color_mode =
+  match color_mode with
+  | Color_Always -> true
+  | Color_Never -> false
+  | Color_Auto -> supports_color ()
+
+let emoji_spinner =
+  List.map
+    (* Some terminals display the emoji using only one column, even though they
+    may take up two columns, and put the cursor immediately after it in an
+    illegible manner. Add an extra space to separate the cursor from the emoji. *)
+    ~f:(fun x -> x ^ " ")
+    [
+      "\xF0\x9F\x98\xA1"; (* Angry Face *)
+      "\xF0\x9F\x98\x82"; (* Face With Tears of Joy *)
+      "\xF0\x9F\xA4\x94"; (* Thinking Face *)
+      "\xF0\x9F\x92\xAF" (* Hundred Points *)
+    ]
+
 (* See https://github.com/yarnpkg/yarn/issues/405. *)
 let supports_emoji () = Sys.os_type <> "Win32" && supports_color ()
 
+let apply_color ?(color_mode=Color_Auto) c s: string =
+  if should_color color_mode
+  then Printf.sprintf "\x1b[%sm%s\x1b[0m" (style_num c) (s)
+  else Printf.sprintf "%s" s
+
 let print_one ?(color_mode=Color_Auto) ?(out_channel=stdout) c s =
-  let should_color = match color_mode with
-    | Color_Always -> true
-    | Color_Never -> false
-    | Color_Auto -> supports_color ()
-  in
-  if should_color
-  then Printf.fprintf out_channel "\x1b[%sm%s\x1b[0m" (style_num c) (s)
-  else Printf.fprintf out_channel "%s" s
+  Printf.fprintf out_channel "%s" (apply_color ~color_mode c s)
 
 let cprint ?(color_mode=Color_Auto) ?(out_channel=stdout) strs =
   List.iter strs (fun (c, s) -> print_one ~color_mode ~out_channel c s)
@@ -105,9 +121,11 @@ let cprintf ?(color_mode=Color_Auto) ?(out_channel=stdout) c =
 
 let (spinner, spinner_used) =
   let state = ref 0 in
-  (fun () ->
+  (fun ?(angery_reaccs_only=false) () ->
     begin
-      let str = List.nth_exn ["-"; "\\"; "|"; "/"] (!state mod 4) in
+      let spinner =
+        if angery_reaccs_only then emoji_spinner else ["-"; "\\"; "|"; "/"] in
+      let str = List.nth_exn spinner (!state mod 4) in
       state := !state + 1;
       str
     end),
@@ -153,3 +171,21 @@ let eprintf fmt =
   if Unix.(isatty stderr)
   then Printf.eprintf fmt
   else Printf.ifprintf stderr fmt
+
+(* Gets the number of columns in the current terminal window through
+ * [`tput cols`][1]. If the command fails in any way then `None` will
+ * be returned.
+ *
+ * This value may change over the course of program execution if a user resizes
+ * their terminal.
+ *
+ * [1]: http://invisible-island.net/ncurses/man/tput.1.html
+ *)
+let get_term_cols () =
+  if not Sys.unix || not (supports_color ()) then
+    None
+  else
+    try
+      Some (int_of_string (Sys_utils.exec_read "tput cols"))
+    with
+      _ -> None

@@ -1,11 +1,11 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *)
 
-open Ast
+open Flow_ast
 module Error = Parse_error
 module SSet = Set.Make(String)
 
@@ -56,14 +56,7 @@ end = struct
   }
 
   let create lex_env mode =
-    let lexbuf = Lex_env.lexbuf lex_env in
-    (* copy all the mutable things so that we have a distinct lexing environment
-     * that does not interfere with ordinary lexer operations *)
-    (* lex_buffer has type bytes, which is itself mutable, but the lexer
-     * promises not to change it so a shallow copy should be fine *)
-    (* I don't know how to do a copy without an update *)
-    let lexbuf = lexbuf |> Obj.repr |> Obj.dup |> Obj.obj in
-    let lex_env = Lex_env.with_lexbuf ~lexbuf lex_env in
+    let lex_env = Lex_env.clone lex_env in
     {
       la_results = [||];
       la_num_lexed = 0;
@@ -97,22 +90,14 @@ end = struct
     let lex_env = t.la_lex_env in
     let lex_env, lex_result =
       match t.la_lex_mode with
-      | Lex_mode.NORMAL -> Lexer.token lex_env
-      | Lex_mode.TYPE -> Lexer.type_token lex_env
-      | Lex_mode.JSX_TAG -> Lexer.jsx_tag lex_env
-      | Lex_mode.JSX_CHILD -> Lexer.jsx_child lex_env
-      | Lex_mode.TEMPLATE -> Lexer.template_tail lex_env
-      | Lex_mode.REGEXP -> Lexer.regexp lex_env
+      | Lex_mode.NORMAL -> Flow_lexer.token lex_env
+      | Lex_mode.TYPE -> Flow_lexer.type_token lex_env
+      | Lex_mode.JSX_TAG -> Flow_lexer.jsx_tag lex_env
+      | Lex_mode.JSX_CHILD -> Flow_lexer.jsx_child lex_env
+      | Lex_mode.TEMPLATE -> Flow_lexer.template_tail lex_env
+      | Lex_mode.REGEXP -> Flow_lexer.regexp lex_env
     in
-    let cloned_env =
-      let lexbuf =
-        Lex_env.lexbuf lex_env
-        |> Obj.repr
-        |> Obj.dup
-        |> Obj.obj
-      in
-      Lex_env.with_lexbuf ~lexbuf lex_env
-    in
+    let cloned_env = Lex_env.clone lex_env in
     t.la_lex_env <- lex_env;
     t.la_results.(t.la_num_lexed) <- Some (cloned_env, lex_result);
     t.la_num_lexed <- t.la_num_lexed + 1
@@ -153,18 +138,24 @@ type token_sink_result = {
 }
 
 type parse_options = {
+  enums: bool;
   esproposal_class_instance_fields: bool;
   esproposal_class_static_fields: bool;
   esproposal_decorators: bool;
   esproposal_export_star_as: bool;
+  esproposal_optional_chaining: bool;
+  esproposal_nullish_coalescing: bool;
   types: bool;
   use_strict: bool;
 }
 let default_parse_options = {
+  enums = false;
   esproposal_class_instance_fields = false;
   esproposal_class_static_fields = false;
   esproposal_decorators = false;
   esproposal_export_star_as = false;
+  esproposal_optional_chaining = false;
+  esproposal_nullish_coalescing = false;
   types = true;
   use_strict = false;
 }
@@ -287,9 +278,7 @@ let error_at env (loc, e) =
   match env.error_callback with
   | None -> ()
   | Some callback -> callback env e
-let comment_list env =
-  List.iter (fun c -> env.comments := c :: !(env.comments))
-let record_export env (loc, export_name) =
+let record_export env (loc, { Identifier.name= export_name; comments= _ }) =
   if export_name = "" then () else (* empty identifiers signify an error, don't export it *)
   let exports = !(env.exports) in
   if SSet.mem export_name exports
@@ -337,7 +326,7 @@ let add_used_private env name loc =
   | (declared, used)::xs -> env.privates := ((declared, (name, loc) :: used) :: xs)
 
 (* lookahead: *)
-let lookahead ?(i=0) env =
+let lookahead ~i env =
   assert (i < maximum_lookahead);
   Lookahead.peek !(env.lookahead) i
 
@@ -452,8 +441,9 @@ let is_reserved str_val =
 
 let is_reserved_type str_val =
   match str_val with
-  | "any" | "bool" | "boolean" | "empty" | "false" | "mixed" | "null"
-  | "number" | "static" | "string" | "true" | "typeof" | "void" -> true
+  | "any" | "bool" | "boolean" | "empty" | "false" | "mixed" | "null" | "number" | "bigint"
+  | "static" | "string" | "true" | "typeof" | "void" | "interface" | "extends" | "_"
+    -> true
   | _ -> false
 
 (* Answer questions about what comes next *)
@@ -461,18 +451,34 @@ module Peek = struct
   open Loc
   open Token
 
-  let token ?(i=0) env = Lex_result.token (lookahead ~i env)
-  let loc ?(i=0) env = Lex_result.loc (lookahead ~i env)
-  let errors ?(i=0) env = Lex_result.errors (lookahead ~i env)
-  let comments ?(i=0) env = Lex_result.comments (lookahead ~i env)
-  let lex_env ?(i=0) env = Lookahead.lex_env !(env.lookahead) i
+  let ith_token ~i env = Lex_result.token (lookahead ~i env)
+  let ith_loc ~i env = Lex_result.loc (lookahead ~i env)
+  let ith_errors ~i env = Lex_result.errors (lookahead ~i env)
+  let ith_comments ~i env = Lex_result.comments (lookahead ~i env)
+  let ith_lex_env ~i env = Lookahead.lex_env !(env.lookahead) i
+
+  let token env = ith_token ~i:0 env
+  let loc env = ith_loc ~i:0 env
+  (* loc_skip_lookahead is used to give a loc hint to optional tokens such as type annotations *)
+  let loc_skip_lookahead env =
+    let loc = match last_loc env with
+    | Some loc -> loc
+    | None -> failwith "Peeking current location when not available" in
+    Loc.({ loc with start = loc._end})
+
+  let errors env = ith_errors ~i:0 env
+  let comments env = ith_comments ~i:0 env
+  let lex_env env = ith_lex_env ~i:0 env
 
   (* True if there is a line terminator before the next token *)
-  let is_line_terminator env =
-    match last_loc env with
+  let ith_is_line_terminator ~i env =
+    let loc = if i > 0 then Some (ith_loc ~i:(i - 1) env) else last_loc env in
+    match loc with
       | None -> false
       | Some loc' ->
-          (loc env).start.line > loc'.start.line
+          (ith_loc ~i env).start.line > loc'.start.line
+
+  let is_line_terminator env = ith_is_line_terminator ~i:0 env
 
   let is_implicit_semicolon env =
     match token env with
@@ -480,10 +486,8 @@ module Peek = struct
     | T_SEMICOLON -> false
     | _ -> is_line_terminator env
 
-  (* This returns true if the next token is identifier-ish (even if it is an
-   * error) *)
-  let is_identifier ?(i=0) env =
-    match token ~i env with
+  let ith_is_identifier ~i env =
+    match ith_token ~i env with
     | t when token_is_strict_reserved t -> true
     | t when token_is_future_reserved t -> true
     | t when token_is_restricted t -> true
@@ -498,10 +502,10 @@ module Peek = struct
     | T_IDENTIFIER _ -> true
     | _ -> false
 
-  let is_type_identifier ?(i=0) env =
+  let ith_is_type_identifier ~i env =
     match lex_mode env with
     | Lex_mode.TYPE ->
-      begin match token ~i env with
+      begin match ith_token ~i env with
       | T_IDENTIFIER _ -> true
       | _ -> false
       end
@@ -510,7 +514,7 @@ module Peek = struct
          example, when deciding whether a `type` token is an identifier or the
          start of a type declaration, based on whether the following token
          `is_type_identifier`. *)
-      begin match token ~i env with
+      begin match ith_token ~i env with
       | T_IDENTIFIER { raw; _ } when is_reserved_type raw -> false
 
       (* reserved type identifiers, but these don't appear in NORMAL mode *)
@@ -518,10 +522,12 @@ module Peek = struct
       | T_MIXED_TYPE
       | T_EMPTY_TYPE
       | T_NUMBER_TYPE
+      | T_BIGINT_TYPE
       | T_STRING_TYPE
       | T_VOID_TYPE
       | T_BOOLEAN_TYPE _
       | T_NUMBER_SINGLETON_TYPE _
+      | T_BIGINT_SINGLETON_TYPE _
 
       (* identifier-ish *)
       | T_ASYNC
@@ -610,6 +616,8 @@ module Peek = struct
       | T_MINUS_ASSIGN
       | T_PLUS_ASSIGN
       | T_ASSIGN
+      | T_PLING_PERIOD
+      | T_PLING_PLING
       | T_PLING
       | T_COLON
       | T_OR
@@ -643,6 +651,7 @@ module Peek = struct
 
       (* literals *)
       | T_NUMBER _
+      | T_BIGINT _
       | T_STRING _
       | T_TEMPLATE_PART _
       | T_REGEXP _
@@ -658,21 +667,24 @@ module Peek = struct
     | Lex_mode.TEMPLATE
     | Lex_mode.REGEXP -> false
 
-  let is_identifier_name ?(i=0) env =
-    is_identifier ~i env || is_type_identifier ~i env
+  let ith_is_identifier_name ~i env =
+    ith_is_identifier ~i env || ith_is_type_identifier ~i env
 
-  let is_literal_property_name ?(i=0) env =
-    is_identifier ~i env || match token ~i env with
-    | T_STRING _
-    | T_NUMBER _ -> true
-    | _ -> false
+  (* This returns true if the next token is identifier-ish (even if it is an
+     error) *)
+  let is_identifier env = ith_is_identifier ~i:0 env
 
-  let is_function ?(i=0) env =
-    token ~i env = T_FUNCTION ||
-    (token ~i env = T_ASYNC && token ~i:(i+1) env = T_FUNCTION)
+  let is_identifier_name env = ith_is_identifier_name ~i:0 env
 
-  let is_class ?(i=0) env =
-    match token ~i env with
+  let is_type_identifier env = ith_is_type_identifier ~i:0 env
+
+  let is_function env =
+    token env = T_FUNCTION ||
+    (token env = T_ASYNC && ith_token ~i:1 env = T_FUNCTION &&
+      (loc env)._end.line = (ith_loc ~i:1 env).start.line)
+
+  let is_class env =
+    match token env with
     | T_CLASS
     | T_AT -> true
     | _ -> false
@@ -749,8 +761,8 @@ module Eat = struct
     env.lex_env := Peek.lex_env env;
 
     error_list env (Peek.errors env);
-    comment_list env (Peek.comments env);
-    env.last_lex_result := Some (lookahead env);
+    env.comments := List.rev_append (Peek.comments env) !(env.comments);
+    env.last_lex_result := Some (lookahead ~i:0 env);
 
     Lookahead.junk !(env.lookahead)
 
@@ -817,7 +829,7 @@ module Try = struct
 
   type saved_state = {
     saved_errors          : (Loc.t * Error.t) list;
-    saved_comments        : Loc.t Ast.Comment.t list;
+    saved_comments        : Loc.t Flow_ast.Comment.t list;
     saved_last_lex_result : Lex_result.t option;
     saved_lex_mode_stack  : Lex_mode.t list;
     saved_lex_env         : Lex_env.t;
@@ -870,4 +882,9 @@ module Try = struct
     let saved_state = save_state env in
     try success env saved_state (parse env)
     with Rollback -> rollback_state env saved_state
+
+  let or_else env ~fallback parse =
+    match to_parse env parse with
+    | ParsedSuccessfully result -> result
+    | FailedToParse -> fallback
 end

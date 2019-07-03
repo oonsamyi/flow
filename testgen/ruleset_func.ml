@@ -1,14 +1,14 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *)
 
-module S = Ast.Statement;;
-module E = Ast.Expression;;
-module T = Ast.Type;;
-module P = Ast.Pattern;;
+module S = Flow_ast.Statement;;
+module E = Flow_ast.Expression;;
+module T = Flow_ast.Type;;
+module P = Flow_ast.Pattern;;
 module Utils = Flowtestgen_utils;;
 
 (* ESSENTIAL: Syntax type and related functions *)
@@ -23,15 +23,15 @@ class ruleset_func = object(self)
   method! weak_assert b = self#backtrack_on_false b
 
   method! is_subtype_func
-      (f1 : Loc.t T.Function.t)
-      (f2 : Loc.t T.Function.t) : bool =
+      (f1 : (Loc.t, Loc.t) T.Function.t)
+      (f2 : (Loc.t, Loc.t) T.Function.t) : bool =
     let open T.Function in
-    let get_type_list (f : Loc.t T.Function.t) : Loc.t T.t' list =
+    let get_type_list (f : (Loc.t, Loc.t) T.Function.t) : (Loc.t, Loc.t) T.t' list =
       let open T.Function.Param in
       let (_, { T.Function.Params.params; rest = _ }) = f.params in
       List.map
-        (fun param -> (snd param).typeAnnotation |> snd)
-        params @ [f.returnType |> snd] in
+        (fun param -> (snd param).annot |> snd)
+        params @ [f.return |> snd] in
 
     let rec func_subtype_helper l1 l2 = match l1, l2 with
       | [], [] -> true
@@ -57,16 +57,16 @@ class ruleset_func = object(self)
 
   (* A rule for generating function definitions *)
   method! rule_funcdef (env : env_t) : (Syntax.t * env_t) =
-    let mk_func_type (ptype : Loc.t T.t') (rtype : Loc.t T.t') : Loc.t T.t' =
+    let mk_func_type (ptype : (Loc.t, Loc.t) T.t') (rtype : (Loc.t, Loc.t) T.t') : (Loc.t, Loc.t) T.t' =
       let param_type =
         (Loc.none, T.Function.Param.({name = None;
-                                      typeAnnotation = (Loc.none, ptype);
+                                      annot = (Loc.none, ptype);
                                       optional = false})) in
       let ret_type = (Loc.none, rtype) in
 
       T.Function.(T.Function {params = (Loc.none, { Params.params = [param_type]; rest = None });
-                              returnType = ret_type;
-                              typeParameters = None}) in
+                              return = ret_type;
+                              tparams = None}) in
 
     (* parameter type *)
     let param_type =
@@ -86,21 +86,23 @@ class ruleset_func = object(self)
        correct way to do this is to change every expression
        that has the variable occurrences whose type is the super
        type of the parameter *)
-    let fenv = (Expr (E.Identifier (Loc.none, pname), param_type)) ::
+    let fenv = (Expr (E.Identifier (Flow_ast_utils.ident_of_source (Loc.none, pname)), param_type)) ::
                (let open T.Function in
                 match param_type with
                 (* If the parameter is a function, we create new function calls *)
                 | T.Function {params = _;
-                              returnType = _, rt;
-                              typeParameters = _;} ->
+                              return = _, rt;
+                              tparams = _;} ->
                   let open E.Call in
                   List.fold_right (fun elt acc ->
                       match elt with
                       | Expr (E.Call {callee = _, fid;
+                                      targs;
                                       arguments = args}, _) ->
                         let ftype = self#get_type_from_expr fid env in
                         if self#is_subtype param_type ftype then begin
-                          (Expr (E.Call {callee = (Loc.none, E.Identifier (Loc.none, pname));
+                          (Expr (E.Call {callee = (Loc.none, E.Identifier (Flow_ast_utils.ident_of_source (Loc.none, pname)));
+                                         targs;
                                          arguments = args}, rt)) :: elt :: acc
                         end else elt :: acc
                       | _ -> elt :: acc) env []
@@ -110,13 +112,11 @@ class ruleset_func = object(self)
                   List.fold_right (fun elt acc ->
                       match elt with
                       | Expr (E.Member {_object = _, obj;
-                                        property = prop;
-                                        computed = c}, t) ->
+                                        property = prop}, t) ->
                         let otype = self#get_type_from_expr obj env in
                         if self#is_subtype param_type otype then begin
-                          (Expr (E.Member {_object = (Loc.none, E.Identifier (Loc.none, pname));
-                                           property = prop;
-                                           computed = c}, t)) :: elt :: acc
+                          (Expr (E.Member {_object = (Loc.none, E.Identifier (Flow_ast_utils.ident_of_source (Loc.none, pname)));
+                                           property = prop}, t)) :: elt :: acc
                         end else elt :: acc
                       | _ -> elt :: acc) env []
                 | _ -> env) in
@@ -152,7 +152,7 @@ class ruleset_func = object(self)
     let new_env =
       self#add_binding
         env
-        (Expr ((E.Identifier (Loc.none, fname)), ret_type)) in
+        (Expr ((E.Identifier (Flow_ast_utils.ident_of_source (Loc.none, fname))), ret_type)) in
     let new_env = self#add_binding new_env (Type ret_type) in
     func_def, new_env
 
@@ -172,9 +172,9 @@ class ruleset_func = object(self)
       let open T.Function in
       match func_type with
       | T.Function {params = (_, { Params.params = plist; rest = _ });
-                    returnType = _;
-                    typeParameters = _} ->
-        T.Function.Param.((plist |> List.hd |> snd).typeAnnotation)
+                    return = _;
+                    tparams = _} ->
+        T.Function.Param.((plist |> List.hd |> snd).annot)
       | _ -> failwith "This has to a function type" in
 
     (* parameter *)
@@ -192,8 +192,8 @@ class ruleset_func = object(self)
 
     let ret_type = T.Function.(match func_type with
         | T.Function {params = _;
-                      returnType = (_, rt);
-                      typeParameters =_} -> rt
+                      return = (_, rt);
+                      tparams =_} -> rt
         | _ -> failwith "This has to be a function type") in
     let new_env =
       self#add_binding

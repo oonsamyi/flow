@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2017-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -9,22 +9,18 @@
  * to be super thin, the Flow server manages most of the persistent connection state. All the
  * monitor really needs to do is keep track of which connection goes with which ID *)
 
-let mutex = Lwt_mutex.create ()
 let map = ref IMap.empty
 
 let add ~client_id ~client =
-  Lwt_mutex.with_lock mutex (fun () ->
-    map := IMap.add client_id client !map;
-    Lwt.return_unit
-  )
+  map := IMap.add client_id client !map
 
 let get ~client_id =
-  Lwt_mutex.with_lock mutex (fun () ->
-    Lwt.return (IMap.get client_id !map)
-  )
+  IMap.get client_id !map
 
 let remove ~client_id =
-  Lwt_mutex.with_lock mutex (fun () ->
-    map := IMap.remove client_id !map;
-    Lwt.return_unit
-  )
+  map := IMap.remove client_id !map
+
+let cardinal () =
+  IMap.cardinal !map
+
+let get_all_clients () = IMap.bindings !map |> Core_list.map ~f:snd

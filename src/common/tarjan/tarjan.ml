@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -8,10 +8,7 @@
 (* For a detailed description of the algorithm, see:
    http://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm
 
-   The code below is mostly a transcription of the above. In addition to
-   computing strongly connected components, we also compute their "heights": the
-   height of a strongly connected component is the length of the longest path of
-   strongly connected components from it in the residual graph. *)
+   The code below is mostly a transcription of the above. *)
 
 module type NODE = sig
   type t
@@ -26,30 +23,31 @@ module Make
 
   (** Nodes are N.t. Edges are dependencies. **)
   type topsort_state = {
+    graph: NSet.t NMap.t;
     (* nodes not yet visited *)
-    mutable not_yet_visited: NSet.t NMap.t;
+    mutable not_yet_visited: NSet.t;
     (* number of nodes visited *)
     mutable visit_count: int;
     (* visit ordering *)
-    mutable indices: int NMap.t;
+    indices: (N.t, int) Hashtbl.t;
     (* nodes in a strongly connected component *)
     mutable stack: N.t list;
+    mem_stack: (N.t, bool) Hashtbl.t;
     (* back edges to earliest visited nodes *)
-    mutable lowlinks: int NMap.t;
-    (* heights *)
-    mutable heights: int NMap.t;
+    lowlinks: (N.t, int) Hashtbl.t;
     (* components *)
-    mutable components: N.t list NMap.t;
+    mutable components: N.t Nel.t list;
   }
 
-  let initial_state nodes = {
-    not_yet_visited = nodes;
+  let initial_state ~roots graph = {
+    graph;
+    not_yet_visited = roots;
     visit_count = 0;
-    indices = NMap.empty;
+    indices = Hashtbl.create 0;
     stack = [];
-    lowlinks = NMap.empty;
-    heights = NMap.empty;
-    components = NMap.empty;
+    mem_stack = Hashtbl.create 0;
+    lowlinks = Hashtbl.create 0;
+    components = [];
   }
 
   (* Compute strongly connected component for node m with requires rs. *)
@@ -58,128 +56,80 @@ module Make
     state.visit_count <- i + 1;
 
     (* visit m *)
-    state.indices <- NMap.add m i state.indices;
-    state.not_yet_visited <- NMap.remove m state.not_yet_visited;
+    Hashtbl.replace state.indices m i;
+    state.not_yet_visited <- NSet.remove m state.not_yet_visited;
 
     (* push on stack *)
     state.stack <- m :: state.stack;
+    Hashtbl.replace state.mem_stack m true;
 
     (* initialize lowlink *)
     let lowlink = ref i in
 
-    (* initialize height *)
-    let height = ref 0 in
-
     (* for each require r in rs: *)
     rs |> NSet.iter (fun r ->
-      match NMap.get r state.not_yet_visited with
-      | Some rs_ ->
+      if Hashtbl.mem state.indices r
+      then begin
+        if (Hashtbl.find state.mem_stack r) then
+          (** either back edge, or cross edge where strongly connected component
+              is not yet complete **)
+          (* update lowlink with index of r *)
+          let index_r = Hashtbl.find state.indices r in
+          lowlink := min !lowlink index_r
+      end else match NMap.get r state.graph with
+        | Some rs_ ->
           (* recursively compute strongly connected component of r *)
-          let h = strongconnect state r rs_ in
-
-          (* update height with that of r *)
-          height := max !height h;
+          strongconnect state r rs_;
 
           (* update lowlink with that of r *)
-          let lowlink_r = NMap.find_unsafe r state.lowlinks in
+          let lowlink_r = Hashtbl.find state.lowlinks r in
           lowlink := min !lowlink lowlink_r
 
-      | None ->
-          if (List.mem r state.stack) then
-            (** either back edge, or cross edge where strongly connected component
-                is not yet complete **)
-            (* update lowlink with index of r *)
-            let index_r = NMap.find_unsafe r state.indices in
-            lowlink := min !lowlink index_r
-          else
-            match NMap.get r state.heights with
-            | Some h ->
-                (** cross edge where strongly connected component is complete **)
-                (* update height *)
-                height := max !height h
-            | None -> ()
+        | None -> ()
     );
 
-    state.lowlinks <- NMap.add m !lowlink state.lowlinks;
-    if (!lowlink = i) then (
+    Hashtbl.replace state.lowlinks m !lowlink;
+    if (!lowlink = i) then
       (* strongly connected component *)
-      let h = !height + 1 in
-      let c = component state m h in
-      state.components <- NMap.add m c state.components;
-      h
-    )
-    else !height
+      let c = component state m in
+      state.components <- (m, c) :: state.components
 
   (* Return component strongly connected to m. *)
-  and component state m h =
+  and component state m =
     (* pop stack until m is found *)
     let m_ = List.hd state.stack in
     state.stack <- List.tl state.stack;
-    state.heights <- state.heights |> NMap.add m_ h;
+    Hashtbl.replace state.mem_stack m_ false;
     if (m = m_) then []
-    else m_ :: (component state m h)
+    else m_ :: (component state m)
 
   (** main loop **)
   let tarjan state =
-    while not (NMap.is_empty state.not_yet_visited) do
+    while not (NSet.is_empty state.not_yet_visited) do
       (* choose a node, compute its strongly connected component *)
       (** NOTE: this choice is non-deterministic, so any computations that depend
           on the visit order, such as heights, are in general non-repeatable. **)
-      let m, rs =
-         match NMap.choose state.not_yet_visited with
-         | Some (m, rs) -> m, rs
-         | None -> failwith "choose should always work on a non empty node map" in
-      strongconnect state m rs |> ignore
+      let m = NSet.choose state.not_yet_visited in
+      let rs = NMap.find_unsafe m state.graph in
+      strongconnect state m rs
     done
 
-  (* Order nodes by their computed heights. It is guaranteed that height ordering
-     implies topological sort ordering; in particular, nodes at a particular
-     height are guaranteed to only depend on nodes at lower heights, so we can
-     partition nodes by their heights, and run a series of parallel jobs, one for
-     each partition, by height. *)
-  let partition heights components =
-    NMap.fold (fun m c map ->
-      let mc = m::c in
-      let height = NMap.find_unsafe m heights in
-      match IMap.get height map with
-      | None -> IMap.add height [mc] map
-      | Some mcs -> IMap.add height (mc::mcs) map
-    ) components IMap.empty
-
-  let topsort nodes =
-    let state = initial_state nodes in
+  let topsort ~roots graph =
+    let state = initial_state ~roots graph in
     tarjan state;
-    partition state.heights state.components
-
-  let reverse nodes =
-    nodes
-    |> NMap.map (fun _ -> NSet.empty)
-    |> NMap.fold (fun from_f ->
-         NSet.fold (fun to_f rev_nodes ->
-           let from_fs = NMap.find_unsafe to_f rev_nodes in
-           NMap.add to_f (NSet.add from_f from_fs) rev_nodes
-         )
-        ) nodes
+    state.components
 
   let log =
-    IMap.iter (fun _ mcs ->
-      List.iter (fun mc ->
-        (* Show cycles, which are components with more than one node. *)
-        if List.length mc > 1
-        then
-          let nodes = mc
-          |> List.map N.to_string
-          |> String.concat "\n\t"
-          in
-          Printf.ksprintf prerr_endline
-            "cycle detected among the following nodes:\n\t%s" nodes
-      ) mcs;
+    List.iter (fun mc ->
+      (* Show cycles, which are components with more than one node. *)
+      if Nel.length mc > 1
+      then
+        let nodes = mc
+        |> Nel.to_list
+        |> Core_list.map ~f:N.to_string
+        |> String.concat "\n\t"
+        in
+        Printf.ksprintf prerr_endline
+          "cycle detected among the following nodes:\n\t%s" nodes
     )
-
-  let component_map partition =
-    IMap.fold (fun _ components acc ->
-      List.fold_left (fun acc component ->
-        NMap.add (List.hd component) component acc
-      ) acc components
-    ) partition NMap.empty
 end

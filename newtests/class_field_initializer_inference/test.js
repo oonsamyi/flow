@@ -1,10 +1,9 @@
 /*
  * @flow
- * @lint-ignore-every LINEWRAP1
  */
 
 
-import {suite, test} from '../../tsrc/test/Tester';
+import {suite, test} from 'flow-dev-tools/src/test/Tester';
 
 export default suite(({addFile, addFiles, addCode}) => [
   test('Uninitialized instance fields require annotation', [
@@ -13,7 +12,7 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:3
             3: export class Foo { a; }
-                                  ^^ property \`a\`. Missing annotation
+                                  ^^ Missing type annotation for property \`a\`.
         `,
       )
   ]),
@@ -34,7 +33,7 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:3
             3: export class Foo { a = (p) => 42; }
-                                       ^ p. Missing annotation
+                                       ^ Missing type annotation for \`p\`.
         `,
       ),
     addCode('export class Bar { a = (p: number) => 42; }')

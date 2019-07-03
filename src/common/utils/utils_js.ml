@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -13,20 +13,6 @@ let prerr_endlinef fmt = Printf.ksprintf prerr_endline fmt
 
 let exe_name = Filename.basename Sys.executable_name
 
-(* JSON numbers must not end in a `.`, but string_of_float returns things like
-   `1.` instead of `1.0`, so we want to truncate the `.` *)
-(* TODO: ocaml's string_of_float in general differs from JavaScript's. once
-   we fix that (e.g. by pulling in double-conversion or dtoa), we can use that
-   when printing JSON. *)
-let string_of_float_trunc x =
-  let result = string_of_float x in
-  if String.get result (String.length result - 1) = '.' then
-    String.sub result 0 (String.length result - 1)
-  else
-    result
-
-module LocMap = MyMap.Make(Loc)
-
 module FilenameSet = Set.Make(File_key)
 
 module FilenameMap = MyMap.Make (File_key)
@@ -38,7 +24,7 @@ module PathMap : MyMap.S with type key = Path.t = MyMap.Make (struct
 end)
 
 let assert_false s =
-  let callstack = Printexc.(get_callstack 10 |> raw_backtrace_to_string) in
+  let callstack = Exception.get_current_callstack_string 10 in
   prerr_endline (spf "%s%s\n%s:\n%s%s%s"
     (* this clowny shit is to evade hg's conflict marker detection *)
     "<<<<" "<<<<" s callstack ">>>>" ">>>>"
@@ -58,15 +44,12 @@ let call_succeeds try_function function_input =
                    false
   | _ -> false
 
-(* quick exception format *)
-
-let fmt_exc exc = Printexc.((to_string exc) ^ "\n" ^ (get_backtrace ()))
-
-let fmt_file_exc file exc = file ^ ": " ^ (fmt_exc exc)
-
 let map_pair f g (a,b) = (f a, g b)
 let map_fst f (a,b) = (f a, b)
 let map_snd g (a,b) = (a, g b)
+let swap (a, b) = (b, a)
+let mk_tuple x y = (x, y)
+let mk_tuple_swapped x y = (y, x)
 
 let rec iter2opt f = function
   | x::xs, y::ys ->
@@ -86,6 +69,20 @@ let rec toFixpoint f x =
 
 let uncurry f (x,y) = f x y
 let curry f x y = f (x, y)
+
+let ( %> ) f g x = g (f x)
+
+(**
+ * Given a list of lazy "option" expressions, evaluate each in the list
+ * sequentially until one produces a `Some` (and do not evaluate any remaining).
+ *)
+let lazy_seq (lst: 'a option Lazy.t list): 'a option =
+  List.fold_left (fun acc lazy_expr ->
+    match acc with
+    | None -> Lazy.force lazy_expr
+    | Some _ -> acc
+  ) None lst
+
 
 (**
  * Useful for various places where a user might have typoed a string and the
@@ -221,9 +218,87 @@ end
 
 module AugmentableSMap = Augmentable(SMap)
 
+(* The problem with Core_result's >>= is that the function second argument cannot return
+ * an Lwt.t. This helper infix operator handles that case *)
+let (%>>=)
+  (result: ('ok, 'err) Core_result.t)
+  (f: 'ok -> ('a, 'err) Core_result.t Lwt.t)
+  : ('a, 'err) Core_result.t Lwt.t =
+  match result with
+  | Error e -> Lwt.return (Error e)
+  | Ok x -> f x
+
+let (%>>|)
+  (result: ('ok, 'err) Core_result.t)
+  (f: 'ok -> 'a Lwt.t)
+  : ('a, 'err) Core_result.t Lwt.t =
+  match result with
+  | Error e -> Lwt.return (Error e)
+  | Ok x ->
+    let%lwt new_x = f x in
+    Lwt.return (Ok new_x)
+
+let bind2 ~f x y = Core_result.bind x (fun x -> Core_result.bind y (f x))
+let map2 ~f x y = Core_result.bind x (fun x -> Core_result.map y ~f:(f x))
+
+let try_with_json f =
+  try%lwt f ()
+  with
+  | Lwt.Canceled as exn ->
+    let exn = Exception.wrap exn in
+    Exception.reraise exn
+  | exn ->
+    let exn = Exception.wrap exn in
+    Lwt.return (Error (Exception.to_string exn, None))
+
 let try_with f =
-  try f () with exn -> Error (Printexc.to_string exn)
+  try%lwt f ()
+  with
+  | Lwt.Canceled as exn ->
+    let exn = Exception.wrap exn in
+    Exception.reraise exn
+  | exn ->
+    let exn = Exception.wrap exn in
+    Lwt.return (Error (Exception.to_string exn))
+
+let split_result = function
+| Ok (success, extra) -> Ok success, extra
+| Error (error, extra) -> Error error, extra
 
 let debug_print_current_stack_trace () =
-  let open Printexc in
-  get_callstack 200 |> raw_backtrace_to_string |> Hh_logger.info "Current backtrace:\n%s"
+   Hh_logger.info "Current backtrace:\n%s" (Exception.get_current_callstack_string 200)
+
+(* Pass through a result; logging if it is an Error. Includes the provided string context, which is
+ * computed lazily under the assumption that the error case is the uncommon case *)
+let log_when_error (context: string Lazy.t) (result: ('a, string) result) : ('a, string) result =
+  begin match result with
+    | Ok _ -> ()
+    | Error msg ->
+        let lazy context = context in
+        Hh_logger.error "Error (%s): %s" context msg
+  end;
+  result
+
+(* Prints and then returns a value. Makes it easy to log an expression without pulling it out into a
+ * separate variable. e.g:
+ * `match some_complex_expression with ...`
+ * could become:
+ * `match some_complex_expression |> id_print "some info" printer with ...`
+ *)
+
+let id_print context f x =
+  Hh_logger.info "%s: %s" context (f x);
+  x
+
+let debug_string_of_result string_of_val = function
+  | Ok x -> Printf.sprintf "Ok (%s)" (string_of_val x)
+  | Error err -> Printf.sprintf "Error (%s)" err
+
+let get_next_power_of_two x =
+  let rec f y =
+    if y >= x then
+      y
+    else
+      f (y * 2)
+  in
+  f 1

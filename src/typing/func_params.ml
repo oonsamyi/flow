@@ -1,176 +1,70 @@
-module Anno = Type_annotation
-module Flow = Flow_js
+(**
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *)
 
-open Reason
-open Type
-open Destructuring
+(* This module defines a small data structure that stores function parameters
+   before substitution. This is used as part of Func_sig (and Class_sig) to hold
+   constraints at bay until substitution can occur.
 
-type binding = string option * Type.t * Loc.t
-type param =
-  | Simple of Type.t * binding
-  | Complex of Type.t * binding list
-type t = {
-  list: param list;
-  rest: binding option;
-  defaults: Loc.t Ast.Expression.t Default.t SMap.t;
-}
+   Function params serve two purposes: On one hand, they describe the arguments
+   that a function expects. On the other, the bindings that exist within the
+   body of a function. These may not be the same due to default values and
+   destructuring. *)
 
-let empty = {
-  list = [];
-  rest = None;
-  defaults = SMap.empty
-}
+include Func_params_intf
 
-(* Loc.t Ast.Function.t -> Func_params.t *)
-let mk cx type_params_map ~expr func =
-  let add_param_with_default params pattern default = Ast.Pattern.(
-    match pattern with
-    | loc, Identifier { Ast.Pattern.Identifier.
-        name = (_, name);
-        typeAnnotation;
-        optional;
-      } ->
-      let reason = mk_reason (RParameter (Some name)) loc in
-      let t = Anno.mk_type_annotation cx type_params_map reason typeAnnotation
-      in (match default with
-      | None ->
-        let t =
-          if optional
-          then Type.optional t
-          else t
-        in
-        Type_table.set (Context.type_table cx) loc t;
-        let binding = Some name, t, loc in
-        let list = Simple (t, binding) :: params.list in
-        { params with list }
-      | Some expr ->
-        (* TODO: assert (not optional) *)
-        let binding = Some name, t, loc in
-        { list = Simple (Type.optional t, binding) :: params.list;
-          defaults = SMap.add name (Default.Expr expr) params.defaults;
-          rest = params.rest; })
-    | loc, _ ->
-      let reason = mk_reason RDestructuring loc in
-      let typeAnnotation = type_of_pattern pattern in
-      let t = typeAnnotation
-        |> Anno.mk_type_annotation cx type_params_map reason in
-      let default = Option.map default Default.expr in
-      let rev_bindings = ref [] in
-      let defaults = ref params.defaults in
-      destructuring cx ~expr t None default pattern ~f:(fun loc name default t ->
-        let t = match typeAnnotation with
-        | None -> t
-        | Some _ ->
-          let reason = mk_reason (RIdentifier name) loc in
-          EvalT (t, DestructuringT (reason, Become), mk_id())
-        in
-        Type_table.set (Context.type_table cx) loc t;
-        rev_bindings := (Some name, t, loc) :: !rev_bindings;
-        Option.iter default ~f:(fun default ->
-          defaults := SMap.add name default !defaults
-        )
-      );
-      let t = match default with
-        | Some _ -> Type.optional t
-        | None -> t (* TODO: assert (not optional) *)
-      in
-      let param = Complex (t, List.rev !rev_bindings) in
-      {
-        list = param :: params.list;
-        defaults = !defaults;
-        rest = params.rest;
-      }
-  ) in
-  let add_rest params pattern =
-    match pattern with
-    | loc, Ast.Pattern.Identifier { Ast.Pattern.Identifier.
-        name = (_, name);
-        typeAnnotation;
-        _;
-      } ->
-      let reason = mk_reason (RRestParameter (Some name)) loc in
-      let t =
-        Anno.mk_type_annotation cx type_params_map reason typeAnnotation
-      in
-      { params with rest = Some (Some name, t, loc) }
-    | loc, _ ->
-      Flow_js.add_output cx
-        Flow_error.(EInternal (loc, RestParameterNotIdentifierPattern));
-      params
-  in
-  let add_param params pattern =
-    match pattern with
-    | _, Ast.Pattern.Assignment { Ast.Pattern.Assignment.left; right; } ->
-      add_param_with_default params left (Some right)
-    | _ ->
-      add_param_with_default params pattern None
-  in
-  let {Ast.Function.params = (_, { Ast.Function.Params.params; rest }); _} = func in
-  let params = List.fold_left add_param empty params in
-  let params = match rest with
-    | Some (_, { Ast.Function.RestElement.argument }) ->
-      add_rest params argument
-    | None -> params
-  in
-  { params with list = List.rev params.list }
+module Make (C: Config) = struct
+  type 'T ast = 'T C.ast
+  type 'T param_ast = 'T C.param_ast
+  type 'T rest_ast = 'T C.rest_ast
 
-(* Ast.Type.Function.t -> Func_params.t *)
-let convert cx type_params_map func = Ast.Type.Function.(
-  let add_param params (loc, {Param.name; typeAnnotation; optional; _}) =
-    let name = match name with
-    | None -> None
-    | Some (_, name) -> Some name in
-    let t = Anno.convert cx type_params_map typeAnnotation in
-    let t = if optional then Type.optional t else t in
-    let binding = name, t, loc in
-    { params with list = Simple (t, binding) :: params.list }
-  in
-  let add_rest params (loc, {Param.name; typeAnnotation; _}) =
-    let name = match name with
-    | None -> None
-    | Some (_, name) -> Some name in
-    let t = Anno.convert cx type_params_map typeAnnotation in
-    let reason = mk_reason (RRestParameter name) (loc_of_t t) in
-    Flow.flow cx (t, AssertRestParamT reason);
-    { params with rest = Some (name, t, loc) }
-  in
-  let (_, { Params.params; rest }) = func.Ast.Type.Function.params in
-  let params = List.fold_left add_param empty params in
-  let params = match rest with
-  | Some (_, { RestParam.argument }) -> add_rest params argument
-  | None -> params
-  in
-  { params with list = List.rev params.list }
-)
+  type param = C.param
+  type rest = C.rest
 
-let value params =
-  params.list |> List.map (function
-    | Simple (t, (name, _, _)) -> name, t
-    | Complex (t, _) -> None, t)
+  type reconstruct =
+    (ALoc.t * Type.t) param_ast list ->
+    (ALoc.t * Type.t) rest_ast option ->
+    (ALoc.t * Type.t) ast option
 
-let rest params =
-  match params.rest with
-  | None -> None
-  | Some (name, t, loc) -> Some (name, loc, t)
+  type t = {
+    params_rev: param list;
+    rest: rest option;
+    reconstruct: reconstruct;
+  }
 
-let iter f params =
-  params.list |> List.iter (function
-    | Simple (_, b) -> f b
-    | Complex (_, bs) -> List.iter f bs);
-  params.rest |> Option.iter ~f
+  let empty reconstruct = {
+    params_rev = [];
+    rest = None;
+    reconstruct;
+  }
 
-let with_default name f params =
-  match SMap.get name params.defaults with
-  | Some t -> f t
-  | None -> ()
+  let add_param p x =
+    { x with params_rev = p::x.params_rev }
 
-let subst_binding cx map (name, t, loc) = (name, Flow.subst cx map t, loc)
+  let add_rest r x =
+    { x with rest = Some r }
 
-let subst cx map params =
-  let list = params.list |> List.map (function
-    | Simple (t, b) ->
-      Simple (Flow.subst cx map t, subst_binding cx map b)
-    | Complex (t, bs) ->
-      Complex (Flow.subst cx map t, List.map (subst_binding cx map) bs)) in
-  let rest = Option.map ~f:(subst_binding cx map) params.rest in
-  { params with list; rest; }
+  let value {params_rev; _} =
+    List.fold_left (fun acc p ->
+      let t = C.param_type p in
+      t::acc
+    ) [] params_rev
+
+  let rest {rest; _} =
+    Option.map ~f:C.rest_type rest
+
+  let subst cx map { params_rev; rest; reconstruct } = {
+    params_rev = Core_list.map ~f:(C.subst_param cx map) params_rev;
+    rest = Option.map ~f:(C.subst_rest cx map) rest;
+    reconstruct;
+  }
+
+  let eval cx { params_rev; rest; reconstruct } =
+    let params = List.rev params_rev in
+    let param_tasts_rev = List.rev_map (C.eval_param cx) params in
+    let rest_tast = Option.map ~f:(C.eval_rest cx) rest in
+    reconstruct (List.rev param_tasts_rev) rest_tast
+end

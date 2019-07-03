@@ -1,10 +1,9 @@
 /*
  * @flow
- * @lint-ignore-every LINEWRAP1
  */
 
 
-import {suite, test} from '../../tsrc/test/Tester';
+import {suite, test} from 'flow-dev-tools/src/test/Tester';
 
 export default suite(({addFile, addFiles, addCode}) => [
   test('Unaliased type import', [
@@ -19,9 +18,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:9
             9: ("str": T);
-                ^^^^^ string. This type is incompatible with
-            9: ("str": T);
-                       ^ T
+                ^^^^^ Cannot cast \`"str"\` to \`T\` because string [1] is incompatible with number [2].
+            References:
+              9: ("str": T);
+                  ^^^^^ [1]
+              9: ("str": T);
+                         ^ [2]
         `,
       ),
   ]),
@@ -38,9 +40,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:9
             9: ("str": U);
-                ^^^^^ string. This type is incompatible with
-            9: ("str": U);
-                       ^ T
+                ^^^^^ Cannot cast \`"str"\` to \`U\` because string [1] is incompatible with number [2].
+            References:
+              9: ("str": U);
+                  ^^^^^ [1]
+              9: ("str": U);
+                         ^ [2]
         `,
       ),
   ]),
@@ -57,9 +62,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:9
             9: ("str": C);
-                ^^^^^ string. This type is incompatible with
-            9: ("str": C);
-                       ^ statics of \`C\`
+                ^^^^^ Cannot cast \`"str"\` to \`C\` because string [1] is incompatible with class \`C\` [2].
+            References:
+              9: ("str": C);
+                  ^^^^^ [1]
+              9: ("str": C);
+                         ^ [2]
         `,
       ),
   ]),
@@ -76,9 +84,12 @@ export default suite(({addFile, addFiles, addCode}) => [
         `
           test.js:9
             9: ("str": CPrime);
-                ^^^^^ string. This type is incompatible with
-            9: ("str": CPrime);
-                       ^^^^^^ statics of \`C\`
+                ^^^^^ Cannot cast \`"str"\` to \`CPrime\` because string [1] is incompatible with class \`C\` [2].
+            References:
+              9: ("str": CPrime);
+                  ^^^^^ [1]
+              9: ("str": CPrime);
+                         ^^^^^^ [2]
         `,
       ),
   ]),

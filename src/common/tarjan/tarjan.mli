@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -19,8 +19,6 @@ module Make
      cyclic, as well as a topologically sorted list of key lists where any keys in
      a list only depend on keys in a subsequent list
   *)
-  val topsort: NSet.t NMap.t -> N.t list list IMap.t
-  val reverse: NSet.t NMap.t -> NSet.t NMap.t
-  val log: N.t list list IMap.t -> unit
-  val component_map: N.t list list IMap.t -> (N.t list) NMap.t
+  val topsort: roots:NSet.t -> NSet.t NMap.t -> N.t Nel.t list
+  val log: N.t Nel.t list -> unit
 end

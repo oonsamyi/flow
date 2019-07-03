@@ -2,9 +2,8 @@
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the "hack" directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the "hack" directory of this source tree.
  *
  *)
 
@@ -12,6 +11,7 @@ open Hh_core
 
 external realpath: string -> string option = "hh_realpath"
 external is_nfs: string -> bool = "hh_is_nfs"
+external is_apple_os : unit -> bool = "hh_sysinfo_is_apple_os"
 
 (** Option type intead of exception throwing. *)
 let get_env name =
@@ -138,7 +138,32 @@ let rec collect_paths path_predicate path =
   else
     Utils.singleton_if (path_predicate path) path
 
-let rm_dir_tree = Disk.rm_dir_tree
+(**
+ * Sometimes the user wants to pass a list of paths on the command-line.
+ * However, we have enough files in the codebase that sometimes that list
+ * exceeds the maximum number of arguments that can be passed on the
+ * command-line. To work around this, we can use the convention that some Unix
+ * tools use: a `@` before a path name represents a file that should be read
+ * to get the necessary information (in this case, containing a list of files,
+ * one per line).
+ *)
+let parse_path_list (paths: string list): string list =
+  List.concat_map paths ~f:(fun path ->
+    if String_utils.string_starts_with path "@"
+    then
+      let path = String_utils.lstrip path "@" in
+      cat path |> split_lines
+    else
+      [path]
+) |> List.map ~f:(fun path ->
+  match realpath path with
+  | Some path -> path
+  | None -> failwith (Printf.sprintf "Invalid path: %s" path)
+)
+
+let rm_dir_tree ?(skip_mocking=false) =
+  if skip_mocking then RealDisk.rm_dir_tree
+  else Disk.rm_dir_tree
 
 let restart () =
   let cmd = Sys.argv.(0) in
@@ -171,7 +196,7 @@ let with_umask umask f =
   let old_umask = ref 0 in
   Utils.with_context
     ~enter:(fun () -> old_umask := Unix.umask umask)
-    ~exit:(fun () -> Unix.umask !old_umask)
+    ~exit:(fun () -> let _ = Unix.umask !old_umask in ())
     ~do_:f
 let with_umask umask f =
   if Sys.win32 then f () else with_umask umask f
@@ -299,6 +324,11 @@ let append_file ~file s =
   let chan = open_out_gen [Open_wronly; Open_append; Open_creat] 0o666 file in
   (output_string chan s; close_out chan)
 
+let write_strings_to_file ~file ss =
+  let chan = open_out_gen [Open_wronly; Open_creat] 0o666 file in
+  List.iter ~f:(output_string chan) ss;
+  close_out chan
+
 (* could be in control section too *)
 
 let filemtime file =
@@ -313,7 +343,9 @@ let try_touch ~follow_symlinks file =
   with _ ->
     ()
 
-let mkdir_p = Disk.mkdir_p
+let mkdir_p ?(skip_mocking=false) =
+  if skip_mocking then RealDisk.mkdir_p
+  else Disk.mkdir_p
 
 (* Emulate "mkdir -p", i.e., no error if already exists. *)
 let mkdir_no_fail dir =
@@ -504,3 +536,26 @@ let find_oom_in_dmesg_output pid name lines =
 let check_dmesg_for_oom pid name =
     let dmesg = exec_read_lines ~reverse:true "dmesg" in
     find_oom_in_dmesg_output pid name dmesg
+
+(* Be careful modifying the rusage type! Like other types that interact with C, the order matters!
+ * If you change things here you must update hh_getrusage too! *)
+type rusage = {
+  ru_maxrss: int;        (* maximum resident set size *)
+  ru_ixrss: int;         (* integral shared memory size *)
+  ru_idrss: int;         (* integral unshared data size *)
+  ru_isrss: int;         (* integral unshared stack size *)
+  ru_minflt: int;        (* page reclaims (soft page faults) *)
+  ru_majflt: int;        (* page faults (hard page faults) *)
+  ru_nswap: int;         (* swaps *)
+  ru_inblock: int;       (* block input operations *)
+  ru_oublock: int;       (* block output operations *)
+  ru_msgsnd: int;        (* IPC messages sent *)
+  ru_msgrcv: int;        (* IPC messages received *)
+  ru_nsignals: int;      (* signals received *)
+  ru_nvcsw: int;         (* voluntary context switches *)
+  ru_nivcsw: int;        (* involuntary context switches *)
+}
+external getrusage: unit -> rusage = "hh_getrusage"
+
+external start_gc_profiling: unit -> unit = "hh_start_gc_profiling" [@@noalloc]
+external get_gc_time: unit -> float * float = "hh_get_gc_time"

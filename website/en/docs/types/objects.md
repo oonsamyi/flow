@@ -172,7 +172,7 @@ var val1: boolean = obj.prop; // Error!
 var val2: string  = obj.prop; // Works!
 ```
 
-As Flow gets smarter and smarter, there should be fewer instances of these scenarios.
+As Flow gets smarter and smarter, it will figure out the types of properties in more scenarios.
 
 ##### Unknown property lookup on unsealed objects is unsafe <a class="toc" id="toc-unknown-property-lookup-on-unsealed-objects-is-unsafe" href="#toc-unknown-property-lookup-on-unsealed-objects-is-unsafe"></a>
 
@@ -227,6 +227,21 @@ properties to an exact object type.
 ```js
 // @flow
 var foo: {| foo: string |} = { foo: "Hello", bar: "World!" }; // Error!
+```
+
+Intersections of exact object types may not work as you expect. If you need to combine exact object types, use object type spread:
+
+```js
+// @flow
+
+type FooT = {| foo: string |};
+type BarT = {| bar: number |};
+
+type FooBarFailT = FooT & BarT;
+type FooBarT = {| ...FooT, ...BarT |};
+
+const fooBarFail: FooBarFailT = { foo: '123', bar: 12 }; // Error!
+const fooBar: FooBarT = { foo: '123', bar: 12 }; // Works!
 ```
 
 ## Objects as maps <a class="toc" id="toc-objects-as-maps" href="#toc-objects-as-maps"></a>
@@ -285,4 +300,46 @@ function add(id: number, name: string) {
   obj[id] = name;
   obj.size++;
 }
+```
+
+### `Object` Type <a class="toc" id="toc-object-type" href="#toc-object-type"></a>
+
+> NOTE: For new code, prefer `any` or `{ [key: string]: any}`. `Object` is an alias to [`any`](../any/) and will
+> be deprecated and removed in a future version of Flow. 
+
+Sometimes it is useful to write types that accept arbitrary objects, for
+those you should write `{}` like this:
+
+```js
+function method(obj: {}) {
+  // ...
+}
+```
+
+However, if you need to opt-out of the type checker, and don't want to go all
+the way to `any`, you could use `{ [key: string]: any}`. (Note that [`any`](../any/) is unsafe and
+should be avoided). For historical reasons, the `Object` keyword is still avaiable.
+In previous versions of Flow, `Object` was the same
+as `{ [key: string]: any}`.
+
+For example, the following code will not report any errors:
+
+```js
+function method(obj: { [key: string]: any }) {
+  obj.foo = 42;               // Works.
+  let bar: boolean = obj.bar; // Works.
+  obj.baz.bat.bam.bop;        // Works.
+}
+
+method({ baz: 3.14, bar: "hello" });
+```
+
+Neither will this:
+
+```js
+function method(obj: Object) {
+  obj = 10;
+}
+
+method({ baz: 3.14, bar: "hello" });
 ```

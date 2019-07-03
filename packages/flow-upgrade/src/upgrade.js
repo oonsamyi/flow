@@ -32,6 +32,10 @@ const VERSION_UPGRADES: Array<{|
       require('./upgrades/0.53.0/ReactUtilityTypes'),
     ],
   },
+  {
+    version: '0.84.0',
+    upgrades: [require('./upgrades/0.84.0/ExplicitInexactObjectSyntax')],
+  },
 ];
 
 /**
@@ -85,7 +89,9 @@ your code until you are happy with the upgrade.
 The Flow version you're upgrading from: ${chalk.bold.magenta(currentVersion)}
 The Flow version you're upgrading to:   ${chalk.bold.green(nextVersion)}
 
-We will assume that your code is valid Flow ${chalk.bold.magenta(currentVersion)} code.
+We will assume that your code is valid Flow ${chalk.bold.magenta(
+      currentVersion,
+    )} code.
 
 We will be running the following steps to upgrade your codebase. Each step will
 print a short message explaining what it does before it runs, but we won't stop
@@ -93,7 +99,9 @@ to ask you for reconfirmation once we begin upgrading.
 
 ${allUpgrades.map((u, i) => Styled.upgradeTitle(u.title, i + 1)).join('\n')}
 
-Today we will be upgrading all JavaScript files using Flow in: ${chalk.bold.magenta(directory)}
+Today we will be upgrading all JavaScript files using Flow in: ${chalk.bold.magenta(
+      directory,
+    )}
 
 Excluding any JavaScript files in node_modules directories, in flow-typed
 directories, in __flowtests__ directories, or files ending in -flowtest.js.

@@ -141,7 +141,7 @@ method(null);      // Error!
 ### Rest Parameters <a class="toc" id="toc-rest-parameters" href="#toc-rest-parameters"></a>
 
 JavaScript also supports having rest parameters or parameters that collect an
-array of arguments at the end of a list of parameters. These have an elipsis
+array of arguments at the end of a list of parameters. These have an ellipsis
 `...` before them.
 
 You can also add type annotations for rest parameters using the same syntax but
@@ -195,6 +195,15 @@ function method(): boolean {
 }
 ```
 
+Async functions implicitly return a promise, so the return type must always be a `Promise`.
+
+```js
+// @flow
+async function method(): Promise<number> {
+  return 123;
+}
+```
+
 ### Function `this` <a class="toc" id="toc-function-this" href="#toc-function-this"></a>
 
 Every function in JavaScript can be called with a special context named `this`.
@@ -213,7 +222,7 @@ var num: number = method.call(42);
 var str: string = method.call(42);
 ```
 
-### Predicate Functions <a class="toc" id="toc-function-checks" href="#toc-predicate-functions"></a>
+### Predicate Functions <a class="toc" id="toc-predicate-functions" href="#toc-predicate-functions"></a>
 
 Sometimes you will want to move the condition from an `if` statement into a function:
 
@@ -279,7 +288,7 @@ function foo(x): string | number {
   if (isNumberOrString(x)) {
     return x + x;
   } else {
-  	return x.length; // no error, because Flow infers that x can only be an array
+    return x.length; // no error, because Flow infers that x can only be an array
   }
 }
 
@@ -288,8 +297,32 @@ foo(5);
 foo([]);
 ```
 
+### Callable Objects <a class="toc" id="toc-callable-objects" href="#toc-callable-objects"></a>
+
+Callable objects can be typed, for example:
+
+```js
+type CallableObj = {
+  (number, number): number,
+  bar: string
+};
+
+function add(x, y) {
+  return x + y;
+}
+
+// $ExpectError
+(add: CallableObj);
+
+add.bar = "hello world";
+
+(add: CallableObj);
+```
 
 ### `Function` Type <a class="toc" id="toc-function-type" href="#toc-function-type"></a>
+
+> NOTE: For new code prefer `any` or `(...args: Array<any>) => any`. `Function` has become an alias to `any` and will be
+> deprecated and removed in a future version of Flow.
 
 Sometimes it is useful to write types that accept arbitrary functions, for
 those you should write `() => mixed` like this:
@@ -301,13 +334,13 @@ function method(func: () => mixed) {
 ```
 
 However, if you need to opt-out of the type checker, and don't want to go all
-the way to `any`, you can instead use `Function`. **`Function` is unsafe and
-should be avoided.**
+the way to `any`, you can instead use `(...args: Array<any>) => any`. (Note that [`any`](../any/) is unsafe and
+should be avoided). For historical reasons, the `Function` keyword is still avaiable.
 
 For example, the following code will not report any errors:
 
 ```js
-function method(func: Function) {
+function method(func: (...args: Array<any>) => any) {
   func(1, 2);     // Works.
   func("1", "2"); // Works.
   func({}, []);   // Works.
@@ -318,5 +351,17 @@ method(function(a: number, b: number) {
 });
 ```
 
+Neither will this:
+
+```js
+function method(obj: Function) {
+  obj = 10;
+}
+
+method(function(a: number, b: number) {
+  // ...
+});
+```
+
 > ***You should follow [all the same rules](../any/) as `any` when using
-> `Function`.***.
+> `Function`.***

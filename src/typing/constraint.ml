@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2013-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -58,6 +58,7 @@ and root = {
 
 and constraints =
 | Resolved of Type.t
+| FullyResolved of Type.t
 | Unresolved of bounds
 
 (** The bounds structure carries the evolving constraints on the solution of an
@@ -84,16 +85,6 @@ and bounds = {
   mutable uppertvars: Trace.t IMap.t;
 }
 
-(* Extract bounds from a node. *)
-(** WARNING: This function is unsafe, since not all nodes are roots, and not all
-    roots are unresolved. Use this function only when you are absolutely sure
-    that a node is an unresolved root: this is guaranteed to be the case when
-    the type variable it denotes is never involved in unification. **)
-let bounds_of_unresolved_root node =
-  match node with
-  | Root { constraints = Unresolved bounds; _ } -> bounds
-  | _ -> failwith "expected unresolved root"
-
 let new_bounds () = {
   lower = TypeMap.empty;
   upper = UseTypeMap.empty;
@@ -103,12 +94,3 @@ let new_bounds () = {
 
 let new_unresolved_root () =
   Root { rank = 0; constraints = Unresolved (new_bounds ()) }
-
-let copy_bounds = function
-  | { lower; upper; lowertvars; uppertvars; } ->
-    { lower; upper; lowertvars; uppertvars; }
-
-let copy_node node = match node with
-  | Root { rank; constraints = Unresolved bounds } ->
-    Root { rank; constraints = Unresolved (copy_bounds bounds) }
-  | _ -> node

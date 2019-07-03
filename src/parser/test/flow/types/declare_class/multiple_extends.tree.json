@@ -38,8 +38,8 @@
         "properties":[
           {
             "type":"ObjectTypeProperty",
-            "loc":{"source":null,"start":{"line":1,"column":27},"end":{"line":1,"column":31}},
-            "range":[27,31],
+            "loc":{"source":null,"start":{"line":1,"column":27},"end":{"line":1,"column":30}},
+            "range":[27,30],
             "key":{
               "type":"Identifier",
               "loc":{"source":null,"start":{"line":1,"column":27},"end":{"line":1,"column":28}},
@@ -53,14 +53,17 @@
               "loc":{"source":null,"start":{"line":1,"column":30},"end":{"line":1,"column":31}},
               "range":[30,31]
             },
+            "method":false,
             "optional":false,
             "static":false,
+            "proto":false,
             "variance":null,
             "kind":"init"
           }
         ],
         "indexers":[],
-        "callProperties":[]
+        "callProperties":[],
+        "internalSlots":[]
       },
       "extends":[
         {
@@ -77,7 +80,9 @@
           },
           "typeParameters":null
         }
-      ]
+      ],
+      "implements":[],
+      "mixins":[]
     }
   ],
   "comments":[]

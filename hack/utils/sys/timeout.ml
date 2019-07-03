@@ -2,9 +2,8 @@
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the "hack" directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the "hack" directory of this source tree.
  *
  *)
 
@@ -28,9 +27,10 @@ module Alarm_timeout = struct
       let ret =
         try do_ id
         with exn ->
+          let stack = Printexc.get_raw_backtrace () in
           (* Any uncaught exception will cancel the timeout *)
           Timer.cancel_timer timer;
-          raise exn
+          Printexc.raise_with_backtrace exn stack
       in
       Timer.cancel_timer timer;
       ret
@@ -39,10 +39,12 @@ module Alarm_timeout = struct
 
   let check_timeout _ = ()
 
+  let select ?timeout:_ = Sys_utils.select_non_intr
+
   (** Channel *)
 
   type in_channel = Pervasives.in_channel * int option
-  let ignore_timeout f ?timeout (ic, _pid) = f ic
+  let ignore_timeout f ?timeout:_ (ic, _pid) = f ic
   let input = ignore_timeout Pervasives.input
   let really_input = ignore_timeout Pervasives.really_input
   let input_char = ignore_timeout Pervasives.input_char
@@ -106,7 +108,8 @@ module Alarm_timeout = struct
           try reader timeout ic oc
           with exn -> close_in ic; close_out oc; raise exn)
 
-  let open_connection ?timeout sockaddr =
+  let open_connection ?timeout:_ sockaddr =
+    (* timeout isn't used in this Alarm_timeout implementation, but is used in Select_timeout *)
     let (ic, oc) = Unix.open_connection sockaddr in
     ((ic, None), oc)
 
@@ -136,13 +139,6 @@ module Select_timeout = struct
 
   let check_timeout t =
     if Unix.gettimeofday () > t.timeout then raise (Timeout t.id)
-
-  let get_current_timeout = function
-    | None -> -. 1.
-    | Some { timeout; id }  ->
-        let timeout = timeout -. Unix.gettimeofday () in
-        if timeout < 0. then raise (Timeout id);
-        timeout
 
   (** Channel *)
 
@@ -181,14 +177,36 @@ module Select_timeout = struct
         close_in tic;
         snd (Sys_utils.waitpid_non_intr [] pid)
 
+  (* A negative timeout for select means block until a fd is ready *)
+  let no_select_timeout = ~-.1.0
+
+  (* A wrapper around Sys_utils.select_non_intr. If timeout would fire before the select's timeout,
+   * then change the select's timeout and throw an exception when it fires *)
+  let select ?timeout rfds wfds xfds select_timeout =
+    match timeout with
+    (* No timeout set, fallback to Sys_utils.select_non_intr *)
+    | None -> Sys_utils.select_non_intr rfds wfds xfds select_timeout
+    | Some { timeout; id }  ->
+      let timeout = timeout -. Unix.gettimeofday () in
+      (* Whoops, timeout already fired, throw right away! *)
+      if timeout < 0. then raise (Timeout id);
+      (* A negative select_timeout would mean wait forever *)
+      if select_timeout >= 0.0 && select_timeout < timeout
+      (* The select's timeout is smaller than our timeout, so leave it alone *)
+      then Sys_utils.select_non_intr rfds wfds xfds select_timeout
+      else
+        (* Our timeout is smaller, so use that *)
+        match Sys_utils.select_non_intr rfds wfds xfds timeout with
+        (* Timeout hit! Throw an exception! *)
+        | [], [], [] -> raise (Timeout id)
+        (* Got a result before the timeout fired, so just return that *)
+        | ret -> ret
+
   let do_read ?timeout tic =
-    let timeout_duration = get_current_timeout timeout in
-    match Unix.select [ tic.fd ] [] [] timeout_duration with
+    match select ?timeout [ tic.fd ] [] [] no_select_timeout with
     | [], _, _ ->
-      (match timeout with
-      | Some timeout -> raise (Timeout timeout.id)
-      | None -> failwith ("This should be unreachable. "^
-        "How did Unix.select return with no fd when there is no timeout?"))
+      failwith
+        "This should be unreachable. How did select return with no fd when there is no timeout?"
     | [_], _, _ ->
         let read = try
           Unix.read tic.fd tic.buf tic.max (buffer_size - tic.max)
@@ -324,10 +342,10 @@ module Select_timeout = struct
   let marshal_magic = Bytes.of_string "\x84\x95\xA6\xBE"
   let input_value ?timeout tic =
     let magic = Bytes.create 4 in
-    magic.[0] <- input_char ?timeout tic;
-    magic.[1] <- input_char ?timeout tic;
-    magic.[2] <- input_char ?timeout tic;
-    magic.[3] <- input_char ?timeout tic;
+    Bytes.set magic 0 (input_char ?timeout tic);
+    Bytes.set magic 1 (input_char ?timeout tic);
+    Bytes.set magic 2 (input_char ?timeout tic);
+    Bytes.set magic 3 (input_char ?timeout tic);
     if magic <> marshal_magic then
       failwith "Select.input_value: bad object.";
     let b1 = int_of_char (input_char ?timeout tic) in
@@ -337,10 +355,10 @@ module Select_timeout = struct
     let len = ((b1 lsl 24) lor (b2 lsl 16) lor (b3 lsl 8) lor b4) + 12 in
     let data = Bytes.create (len + 8) in
     Bytes.blit magic 0 data 0 4;
-    data.[4] <- char_of_int b1;
-    data.[5] <- char_of_int b2;
-    data.[6] <- char_of_int b3;
-    data.[7] <- char_of_int b4;
+    Bytes.set data 4 (char_of_int b1);
+    Bytes.set data 5 (char_of_int b2);
+    Bytes.set data 6 (char_of_int b3);
+    Bytes.set data 7 (char_of_int b4);
     begin
       try unsafe_really_input ?timeout tic data 8 len
       with End_of_file ->
@@ -414,16 +432,13 @@ module Select_timeout = struct
         Unix.connect sock sockaddr;
       with
       | Unix.Unix_error ((Unix.EINPROGRESS | Unix.EWOULDBLOCK), _, _) -> begin
-          let timeout_duration = get_current_timeout timeout in
-          match Unix.select [] [sock] [] timeout_duration with
+          match select ?timeout [] [sock] [] no_select_timeout with
           | _, [], [exn_sock] when exn_sock = sock ->
             failwith "Failed to connect to socket"
           | _, [], _ ->
-            (match timeout with
-            | Some timeout -> raise (Timeout timeout.id)
-            | None -> failwith ("This should be unreachable. "^
-              "How did Unix.select return with no fd when there is no timeout?"))
-          | _, [sock], _ -> ()
+            failwith
+            "This should be unreachable. How did select return with no fd when there is no timeout?"
+          | _, [_sock], _ -> ()
           | _, _, _ -> assert false
         end
       | exn -> Unix.close sock; raise exn in
@@ -440,7 +455,7 @@ module Select_timeout = struct
   let shutdown_connection { fd; _ } =
     Unix.(shutdown fd SHUTDOWN_SEND)
 
-  let is_timeout_exn {id; timeout=_;} = function
+  let is_timeout_exn {id; timeout = _;} = function
   | Timeout exn_id -> exn_id = id
   | _ -> false
 
@@ -461,6 +476,13 @@ module type S = sig
   val open_in: string -> in_channel
   val close_in: in_channel -> unit
   val close_in_noerr: in_channel -> unit
+  val select:
+    ?timeout:t ->
+    Unix.file_descr list ->
+    Unix.file_descr list ->
+    Unix.file_descr list ->
+    float ->
+    Unix.file_descr list * Unix.file_descr list * Unix.file_descr list
   val input: ?timeout:t -> in_channel -> bytes -> int -> int -> int
   val really_input: ?timeout:t -> in_channel -> bytes -> int -> int -> unit
   val input_char: ?timeout:t -> in_channel -> char

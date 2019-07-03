@@ -1,10 +1,9 @@
 /*
  * @flow
- * @lint-ignore-every LINEWRAP1
  */
 
 
-import {suite, test} from '../../tsrc/test/Tester';
+import {suite, test} from 'flow-dev-tools/src/test/Tester';
 
 export default suite(({addFile, addFiles, addCode}) => [
   test('Make sure the server does not die when a parse error is introduced', [

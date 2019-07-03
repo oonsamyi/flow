@@ -1,5 +1,5 @@
 (**
- * Copyright (c) 2017-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -23,8 +23,6 @@
  * a minor stylistic choice.
  *)
 
-let (>>=) = Lwt.(>>=)
-let (>|=) = Lwt.(>|=)
 module Logger = FlowServerMonitorLogger
 
 module type CONNECTION_PROCESSOR = sig
@@ -106,19 +104,20 @@ module Make (ConnectionProcessor: CONNECTION_PROCESSOR) : CONNECTION
 
   let handle_command conn = function
   | Write msg ->
-    Marshal_tools_lwt.to_fd_with_preamble conn.out_fd msg
+    let%lwt _size = Marshal_tools_lwt.to_fd_with_preamble conn.out_fd msg in Lwt.return_unit
   | WriteAndClose msg ->
     Lwt.cancel conn.command_thread;
-    Marshal_tools_lwt.to_fd_with_preamble conn.out_fd msg
-    >>= (fun () -> close_immediately conn)
+    let%lwt _size = Marshal_tools_lwt.to_fd_with_preamble conn.out_fd msg in
+    close_immediately conn
 
   (* Write everything available in the stream and then close the connection *)
   let flush_and_close conn =
     stop_everything conn;
     close_stream conn;
-    Lwt_stream.get_available conn.command_stream
-    |> Lwt_list.iter_s (handle_command conn)
-    >>= conn.close
+    let%lwt () =
+      Lwt_list.iter_s (handle_command conn) (Lwt_stream.get_available conn.command_stream)
+    in
+    conn.close ()
 
   let is_closed conn = Lwt_stream.is_closed conn.command_stream
 
@@ -128,9 +127,9 @@ module Make (ConnectionProcessor: CONNECTION_PROCESSOR) : CONNECTION
     type acc = t
 
     let main conn =
-      Lwt_stream.next conn.command_stream
-      >>= handle_command conn
-      >|= (fun () -> conn)
+      let%lwt command = Lwt_stream.next conn.command_stream in
+      let%lwt () = handle_command conn command in
+      Lwt.return conn
 
     let catch conn exn =
       match exn with
@@ -150,17 +149,23 @@ module Make (ConnectionProcessor: CONNECTION_PROCESSOR) : CONNECTION
     type acc = t
 
     let main connection =
-      Marshal_tools_lwt.from_fd_with_preamble connection.in_fd
-      >>= (fun (msg: ConnectionProcessor.in_message) ->
-        connection.on_read ~msg ~connection
-        >|= (fun () -> connection)
-      )
+      let%lwt msg =
+        (Marshal_tools_lwt.from_fd_with_preamble connection.in_fd
+          : ConnectionProcessor.in_message Lwt.t)
+      in
+      let%lwt () = connection.on_read ~msg ~connection in
+      Lwt.return connection
 
     let catch connection exn =
-      Logger.error
-        ~exn
-        "Closing connection '%s' due to uncaught exception in read loop"
-        connection.name;
+      (match exn with
+      | End_of_file ->
+        Logger.error "Connection '%s' was closed from the other side" connection.name
+      | _ ->
+        Logger.error
+          ~exn
+          "Closing connection '%s' due to uncaught exception in read loop"
+          connection.name
+      );
       close_immediately connection
   end)
 
@@ -171,7 +176,12 @@ module Make (ConnectionProcessor: CONNECTION_PROCESSOR) : CONNECTION
       (* If we've already woken the thread, then do nothing *)
       let wakeup () = try Lwt.wakeup wakener () with Invalid_argument _ -> () in
       (* On close, wake wait_for_closed_thread *)
-      wait_for_closed_thread, fun () -> close () >|= wakeup
+      let close () =
+        let%lwt () = close () in
+        wakeup ();
+        Lwt.return_unit
+      in
+      wait_for_closed_thread, close
     in
     let command_stream, push_to_stream = Lwt_stream.create () in
     (* Lwt.task creates a thread that can be canceled *)
@@ -184,8 +194,8 @@ module Make (ConnectionProcessor: CONNECTION_PROCESSOR) : CONNECTION
       push_to_stream;
       close;
       on_read;
-      command_thread = paused_thread >>= (fun conn -> CommandLoop.run conn);
-      read_thread = paused_thread >>= (fun conn -> ReadLoop.run conn);
+      command_thread = (let%lwt conn = paused_thread in CommandLoop.run conn);
+      read_thread = (let%lwt conn = paused_thread in ReadLoop.run conn);
       wait_for_closed_thread;
     } in
     let start () = Lwt.wakeup wakener conn in

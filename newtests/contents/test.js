@@ -1,10 +1,9 @@
 /*
  * @flow
- * @lint-ignore-every LINEWRAP1
  */
 
 
-import {suite, test} from '../../tsrc/test/Tester';
+import {suite, test} from 'flow-dev-tools/src/test/Tester';
 
 export default suite(({addFiles, flowCmd}) => [
   test('Ignored directory', [
@@ -32,30 +31,7 @@ export default suite(({addFiles, flowCmd}) => [
         `
           {
             "type": "number",
-            "reasons": [
-              {
-                "desc": "number",
-                "loc": {
-                  "source": "ignore/foo.js",
-                  "type": "SourceFile",
-                  "start": {
-                    "line": 3,
-                    "column": 1,
-                    "offset": 33
-                  },
-                  "end": {
-                    "line": 3,
-                    "column": 3,
-                    "offset": 36
-                  }
-                },
-                "path": "ignore/foo.js",
-                "line": 3,
-                "endline": 3,
-                "start": 1,
-                "end": 3
-              }
-            ],
+            "reasons": [],
             "loc": {
               "source": "ignore/foo.js",
               "type": "SourceFile",
@@ -106,30 +82,7 @@ export default suite(({addFiles, flowCmd}) => [
         `
           {
             "type": "number",
-            "reasons": [
-              {
-                "desc": "number",
-                "loc": {
-                  "source": "no_flow/foo.js",
-                  "type": "SourceFile",
-                  "start": {
-                    "line": 3,
-                    "column": 1,
-                    "offset": 33
-                  },
-                  "end": {
-                    "line": 3,
-                    "column": 3,
-                    "offset": 36
-                  }
-                },
-                "path": "no_flow/foo.js",
-                "line": 3,
-                "endline": 3,
-                "start": 1,
-                "end": 3
-              }
-            ],
+            "reasons": [],
             "loc": {
               "source": "no_flow/foo.js",
               "type": "SourceFile",
